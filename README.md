@@ -4,12 +4,12 @@ A powerful, reusable control flow engine and visualization system for complex so
 
 ## 🚀 Features
 
-- **📊 Flow Visualization**: Generate interactive Mermaid.js diagrams from YAML specifications
+- **📊 Flow Visualization**: Generate professional diagrams with Graphviz from YAML specifications
 - **🔍 Flow Analysis**: Validate and analyze control flow completeness and consistency
 - **🛠️ CLI Interface**: Professional command-line tools for flow management
-- **� YAML Configuration**: Clean, structured flow definitions
+- **📋 YAML Configuration**: Clean, structured flow definitions
 - **🎯 Design-First**: Plan flows before implementation
-- **🔄 Live Updates**: Real-time visualization with web interface
+- **�️ Multiple Formats**: Output to SVG, PNG, PDF for documentation and presentations
 
 ## 📦 Installation
 
@@ -116,10 +116,10 @@ flow-engine analyze flow_specs/CONTROL_FLOWS_SPEC.md
 ## 📊 Features
 
 - **Flow Engine**: Parse and execute YAML-based control flows
-- **Visualizations**: Generate Mermaid diagrams, interactive HTML interfaces
+- **Visualizations**: Generate professional diagrams with Graphviz (SVG, PNG, PDF)
 - **Analysis Tools**: Complexity analysis, dependency tracking  
 - **CLI Interface**: Command-line tools for validation, visualization, analysis
-- **Web Interface**: Interactive flow exploration and real-time updates
+- **Publication Quality**: Production-ready diagrams for documentation and presentations
 
 ## 🏗️ Architecture
 
@@ -127,7 +127,7 @@ This engine was consolidated from multiple OpenProject repositories to eliminate
 
 ### Components
 - `src/control_flow_engine/core/`: Flow parsing and execution engine
-- `src/control_flow_engine/visualizer/`: Mermaid diagram generation and web interfaces
+- `src/control_flow_engine/visualizer/`: Graphviz diagram generation
 - `src/control_flow_engine/analysis/`: Flow analysis and complexity tools
 - `src/control_flow_engine/cli/`: Command-line interface
 - `templates/`: Flow specification templates
