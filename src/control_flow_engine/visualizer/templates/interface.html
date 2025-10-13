@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenProject Control Flow Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .tab:hover {
+            background: #e9ecef;
+        }
+        .tab.active {
+            background: white;
+            border-bottom: 3px solid #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+        .diagram-container {
+            padding: 30px;
+            min-height: 500px;
+            display: none;
+        }
+        .diagram-container.active {
+            display: block;
+        }
+        .diagram-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .diagram-description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .mermaid {
+            text-align: center;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .status-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        .implemented { background: #c8e6c9; }
+        .pending { background: #fff3e0; }
+        .artifact { background: #f3e5f5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Control Flow Visualizer</h1>
+            <p>Interactive visualization of OpenProject configuration flows</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showDiagram('overview')">📊 Overview</button>
+            <button class="tab" onclick="showDiagram('artifacts')">🔗 Artifacts</button>
+            <button class="tab" onclick="showDiagram('states')">📋 States</button>
+            <button class="tab" onclick="showDiagram('timeline')">⏱️ Timeline</button>
+        </div>
+        
+        <div id="overview" class="diagram-container active">
+            <div class="diagram-title">High-Level Control Flow</div>
+            <div class="diagram-description">
+                This diagram shows the main phases of the OpenProject configuration process.
+                Each phase is executed sequentially, with artifacts flowing between them.
+            </div>
+            
+            <div class="status-legend">
+                <div class="status-item">
+                    <div class="status-color implemented"></div>
+                    <span>✅ Implemented</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-color pending"></div>
+                    <span>⏳ Pending</span>
+                </div>
+            </div>
+            
+            <div class="mermaid">
+graph TB
+    DISCOVERY["✅ Discovery Phase<br/>System Analysis & Defaults"]
+    TUI_MAPPING["✅ TUI Mapping<br/>Format Transformation"]
+    COLLECTION["✅ Interactive Collection<br/>User Input Gathering"]
+    VALIDATION["✅ Validation<br/>Configuration Verification"]
+    EXPORT["✅ Export<br/>Deployment Generation"]
+    
+    DISCOVERY --> TUI_MAPPING
+    TUI_MAPPING --> COLLECTION
+    COLLECTION --> VALIDATION
+    VALIDATION --> EXPORT
+
+    classDef implemented fill:#c8e6c9,stroke:#4caf50,stroke-width:2px
+    classDef pending fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+
+    class DISCOVERY,TUI_MAPPING,COLLECTION,VALIDATION,EXPORT implemented
+            </div>
+        </div>
+        
+        <div id="artifacts" class="diagram-container">
+            <div class="diagram-title">Artifact Flow Diagram</div>
+            <div class="diagram-description">
+                Detailed view showing how data artifacts flow between phases.
+                Blue nodes are processes, purple nodes are data artifacts.
+            </div>
+            
+            <div class="status-legend">
+                <div class="status-item">
+                    <div class="status-color implemented"></div>
+                    <span>Process Phase</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-color artifact"></div>
+                    <span>Data Artifact</span>
+                </div>
+            </div>
+            
+            <div class="mermaid">
+graph LR
+    DISCOVERY["🔍 Discovery<br/>Phase"]
+    TUI_MAPPING["🔄 TUI<br/>Mapping"]
+    COLLECTION["💬 Interactive<br/>Collection"]
+    VALIDATION["✅ Validation<br/>Phase"]
+    EXPORT["📤 Export<br/>Phase"]
+    
+    DD["discovery_data"]
+    EDF["enhanced_defaults_file"]
+    DM["defaults_map"]
+    TDF["tui_defaults_file"]
+    UC["user_configuration"]
+    VC["validated_configuration"]
+    VR["validation_report"]
+    DA["deployment_artifacts"]
+    
+    DISCOVERY --> |produces| DD
+    DISCOVERY --> |produces| EDF
+    EDF --> |consumed by| TUI_MAPPING
+    DM --> |consumed by| TUI_MAPPING
+    TUI_MAPPING --> |produces| TDF
+    TDF --> |consumed by| COLLECTION
+    COLLECTION --> |produces| UC
+    UC --> |consumed by| VALIDATION
+    DD --> |consumed by| VALIDATION
+    VALIDATION --> |produces| VC
+    VALIDATION --> |produces| VR
+    VC --> |consumed by| EXPORT
+    EXPORT --> |produces| DA
+
+    classDef phase fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    classDef artifact fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+
+    class DISCOVERY,TUI_MAPPING,COLLECTION,VALIDATION,EXPORT phase
+    class DD,EDF,DM,TDF,UC,VC,VR,DA artifact
+            </div>
+        </div>
+        
+        <div id="states" class="diagram-container">
+            <div class="diagram-title">State Transition Diagram</div>
+            <div class="diagram-description">
+                State machine view showing the progression through configuration phases.
+                Each state represents a stable point in the configuration process.
+            </div>
+            
+            <div class="mermaid">
+stateDiagram-v2
+    [*] --> Discovery
+    Discovery --> TUIMapping
+    TUIMapping --> Collection
+    Collection --> Validation
+    Validation --> Export
+    Export --> [*]
+    
+    Discovery: 🔍 Discovery Phase<br/>System Analysis<br/>Environment Detection
+    TUIMapping: 🔄 TUI Mapping Phase<br/>Format Transformation<br/>Defaults Preparation
+    Collection: 💬 Interactive Collection<br/>User Input<br/>Configuration Gathering
+    Validation: ✅ Validation Phase<br/>Configuration Check<br/>Error Detection
+    Export: 📤 Export Phase<br/>File Generation<br/>Deployment Preparation
+            </div>
+        </div>
+        
+        <div id="timeline" class="diagram-container">
+            <div class="diagram-title">Implementation Timeline</div>
+            <div class="diagram-description">
+                Gantt chart showing the development progress and dependencies between phases.
+            </div>
+            
+            <div class="mermaid">
+gantt
+    title Control Flow Implementation Timeline
+    dateFormat  YYYY-MM-DD
+    section Discovery Phase
+    Environment Discovery     :done, env, 2024-01-01, 2024-01-15
+    System Discovery         :done, sys, 2024-01-10, 2024-01-25
+    Docker Discovery         :done, docker, 2024-01-20, 2024-02-05
+    Network Discovery        :done, network, 2024-01-25, 2024-02-10
+    Enhanced Defaults        :done, defaults, 2024-02-01, 2024-02-15
+    
+    section TUI Mapping
+    Mapping System          :done, mapping, 2024-02-10, 2024-02-20
+    Configuration Format    :done, format, 2024-02-15, 2024-02-25
+    
+    section Collection
+    TUI Integration         :done, tui, 2024-02-20, 2024-03-05
+    Interactive Forms       :done, forms, 2024-02-25, 2024-03-10
+    
+    section Validation
+    Config Validation       :done, validation, 2024-03-05, 2024-03-15
+    Error Handling          :done, errors, 2024-03-10, 2024-03-20
+    
+    section Export
+    File Generation         :done, export, 2024-03-15, 2024-03-25
+    Docker Compose          :done, compose, 2024-03-20, 2024-03-30
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#667eea',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#5a67d8',
+                lineColor: '#333',
+                secondaryColor: '#f3e5f5',
+                tertiaryColor: '#e3f2fd'
+            }
+        });
+        
+        function showDiagram(diagramId) {
+            // Hide all diagrams
+            const containers = document.querySelectorAll('.diagram-container');
+            containers.forEach(container => container.classList.remove('active'));
+            
+            // Remove active from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected diagram
+            document.getElementById(diagramId).classList.add('active');
+            
+            // Mark tab as active
+            event.target.classList.add('active');
+        }
+        
+        // Auto-refresh diagrams (in a real implementation, this would fetch from your spec file)
+        function refreshDiagrams() {
+            console.log('Refreshing diagrams...');
+            // In a real implementation, you would:
+            // 1. Fetch latest CONTROL_FLOWS_SPEC.md
+            // 2. Parse and generate new Mermaid code
+            // 3. Update diagram containers
+        }
+    </script>
+</body>
+</html>
