@@ -1,0 +1,86 @@
+phases:
+  - id: discovery
+    name: "Network Discovery"
+    status: completed
+    description: "Discover network topology and services"
+    artifacts_produced:
+      - network_map
+      - service_inventory
+    artifacts_consumed: []
+    dependencies: []
+    
+  - id: configuration
+    name: "Configuration Collection"
+    status: in_progress
+    description: "Collect configuration from discovered services"
+    artifacts_produced:
+      - config_data
+    artifacts_consumed:
+      - network_map
+      - service_inventory
+    dependencies:
+      - discovery
+      
+  - id: validation
+    name: "Configuration Validation"
+    status: pending
+    description: "Validate collected configurations"
+    artifacts_produced:
+      - validation_report
+    artifacts_consumed:
+      - config_data
+    dependencies:
+      - configuration
+      
+  - id: deployment
+    name: "Deployment"
+    status: pending
+    description: "Deploy validated configurations"
+    artifacts_produced:
+      - deployment_log
+    artifacts_consumed:
+      - config_data
+      - validation_report
+    dependencies:
+      - validation
+
+artifacts:
+  - name: network_map
+    description: "Network topology and connectivity information"
+    producers:
+      - discovery
+    consumers:
+      - configuration
+    lifecycle: persistent
+    
+  - name: service_inventory
+    description: "List of discovered services and their metadata"
+    producers:
+      - discovery
+    consumers:
+      - configuration
+    lifecycle: persistent
+    
+  - name: config_data
+    description: "Collected configuration data"
+    producers:
+      - configuration
+    consumers:
+      - validation
+      - deployment
+    lifecycle: persistent
+    
+  - name: validation_report
+    description: "Configuration validation results"
+    producers:
+      - validation
+    consumers:
+      - deployment
+    lifecycle: transient
+    
+  - name: deployment_log
+    description: "Deployment execution log"
+    producers:
+      - deployment
+    consumers: []
+    lifecycle: persistent
