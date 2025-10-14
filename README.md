@@ -139,6 +139,8 @@ This engine was consolidated from multiple OpenProject repositories to eliminate
 - [Architecture Overview](docs/architecture.md)
 - [Visualization Guide](docs/visualization_guide.md)
 - [Visualizer Usage](docs/visualizer_usage.md)
+- [Runnable Code Pattern](docs/RUNNABLE_CODE_PATTERN.md) - Design principles for standalone testability
+- [Runnable Pattern Implementation](docs/RUNNABLE_PATTERN_COMPLETE.md) - Complete implementation guide
 
 ## 🛠️ Development
 
