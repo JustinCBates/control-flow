@@ -13,10 +13,11 @@ from enum import Enum
 
 
 class ImplementationStatus(Enum):
-    IMPLEMENTED = "IMPLEMENTED"
-    IN_PROGRESS = "IN_PROGRESS" 
-    PLANNED = "PLANNED"
-    TODO = "TODO"
+    """Status values for control flow elements (lowercase for YAML)."""
+    IMPLEMENTED = "implemented"
+    IN_PROGRESS = "in_progress" 
+    PLANNED = "planned"
+    TODO = "todo"
 
 
 @dataclass
@@ -48,6 +49,7 @@ class ControlFlowManager:
     
     def __init__(self, spec_file: Path):
         self.spec_file = spec_file
+        self.spec = {}  # Holds the complete spec structure
         self.flows = {}
         self.entry_points = {}
         self.decision_points = {}
@@ -196,11 +198,14 @@ class ControlFlowManager:
         Returns:
             True if insertion succeeded, False otherwise
         """
-        if flow_name not in self.flows:
+        # Support dict-based flows (standard format)
+        flow = None
+        if isinstance(self.spec.get('flows'), dict):
+            flow = self.spec['flows'].get(flow_name)
+        
+        if not flow:
             print(f"❌ Flow '{flow_name}' not found")
             return False
-        
-        flow = self.flows[flow_name]
         
         # Support both flow_steps and phases structure
         if 'phases' in flow:
@@ -260,23 +265,19 @@ class ControlFlowManager:
         Get a phase from a flow.
         
         Args:
-            flow_name: Name of the flow
+            flow_name: Name of the flow (key in spec.flows dict)
             phase_id: ID of the phase
             
         Returns:
             Phase dictionary or None if not found
         """
-        if flow_name not in self.flows:
-            return None
-        
-        flow = self.flows[flow_name]
-        
-        if 'phases' not in flow:
-            return None
-        
-        for phase in flow['phases']:
-            if phase.get('phase_id') == phase_id:
-                return phase
+        # Support dict-based flows (standard format)
+        if isinstance(self.spec.get('flows'), dict):
+            flow = self.spec['flows'].get(flow_name)
+            if flow:
+                for phase in flow.get('phases', []):
+                    if phase.get('phase_id') == phase_id:
+                        return phase
         
         return None
     
@@ -460,17 +461,20 @@ def test_{step_id}_error_handling(self):
             else:
                 output_path = self.spec_file
         
-        # Build complete specification dictionary
-        spec_data = {}
-        
-        if self.entry_points:
-            spec_data['entry_points'] = self.entry_points
-        if self.flows:
-            spec_data['flows'] = self.flows
-        if self.decision_points:
-            spec_data['decision_points'] = self.decision_points
-        if self.external_interfaces:
-            spec_data['external_interfaces'] = self.external_interfaces
+        # Use self.spec if available (new format), otherwise build from old format
+        if self.spec:
+            spec_data = self.spec
+        else:
+            # Build from old format
+            spec_data = {}
+            if self.entry_points:
+                spec_data['entry_points'] = self.entry_points
+            if self.flows:
+                spec_data['flows'] = self.flows
+            if self.decision_points:
+                spec_data['decision_points'] = self.decision_points
+            if self.external_interfaces:
+                spec_data['external_interfaces'] = self.external_interfaces
         
         # Write YAML with proper formatting
         with open(output_path, 'w') as f:

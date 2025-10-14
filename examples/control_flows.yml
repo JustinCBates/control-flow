@@ -1,0 +1,286 @@
+entry_points:
+  cli:
+    status: IMPLEMENTED
+    description: Main CLI entry point
+    calls:
+    - configure
+    - update
+    - validate
+    - discover
+    - export
+    - version
+  configure:
+    status: IMPLEMENTED
+    description: Run complete configuration process
+    flow_id: main_config_flow
+  update:
+    status: PLANNED
+    description: Update existing configuration
+    flow_id: update_flow
+  validate:
+    status: IMPLEMENTED
+    description: Validate configuration file
+    flow_id: validation_flow
+  discover:
+    status: IMPLEMENTED
+    description: Run discovery only
+    flow_id: discovery_flow
+  export:
+    status: IMPLEMENTED
+    description: Export configuration
+    flow_id: export_flow
+flows:
+  main_config_flow:
+    description: Primary Configuration Process
+    orchestrator: phases/phases_orchestrator.py::PhasesOrchestrator
+    phases:
+    - phase_id: discovery
+      name: Discovery Phase
+      status: IMPLEMENTED
+      description: Discover system environment and generate intelligent defaults
+      sub_flows:
+      - discovery_flow
+      artifacts_produced:
+      - discovery_data
+      - enhanced_defaults_file
+      artifacts_consumed: []
+      implementation:
+        phase_directory: phases/phase_1_discovery/
+        orchestrator_file: phases/phase_1_discovery/orchestrator_discovery.py
+        module: phases.phase_1_discovery
+        class: DiscoveryPhase
+        method: execute(context)
+        returns: Dict[str, Any] with discovery_data and enhanced_defaults_file
+        dependencies:
+        - phases/phase_1_discovery/step_1_env_discovery/environment.py
+        - phases/phase_1_discovery/step_2_system_discovery/system.py
+        - phases/phase_1_discovery/step_2_system_discovery/docker.py
+        - phases/phase_1_discovery/step_2_system_discovery/network.py
+        - phases/phase_1_discovery/step_3_defaults_generation/defaults_generator.py
+        side_effects:
+        - action: writes
+          artifact: enhanced_defaults_file
+          location: phases/phase_1_discovery/outputs/discovery/enhanced_defaults.yml
+          transformation: DefaultsGenerator.generate_enhanced_defaults()
+      data_flow:
+        input: []
+        processing: System probing → in-memory dict → YAML serialization
+        output_memory:
+        - discovery_data
+        output_file:
+        - enhanced_defaults_file
+      sequence: 1
+      steps:
+      - step_id: discovery_prompt
+        name: Discovery Configuration Prompt
+        type: interactive
+        description: Ask user whether to use automatic system discovery or manual
+          configuration
+        status: PLANNED
+        dependencies: []
+        artifacts_produced:
+        - discovery_config
+    - phase_id: tui_mapping
+      name: TUI Defaults Mapping
+      status: IMPLEMENTED
+      description: Transform rich enhanced defaults to simple TUI format
+      sub_flows:
+      - tui_mapping_flow
+      artifacts_produced:
+      - tui_defaults_file
+      artifacts_consumed:
+      - enhanced_defaults_file
+      - defaults_mapping_config
+      implementation:
+        phase_directory: phases/phase_2_tui_mapping/
+        orchestrator_file: phases/phase_2_tui_mapping/orchestrator_tui_mapping.py
+        module: phases.phase_2_tui_mapping
+        class: TuiMappingPhase
+        method: execute(context)
+        returns: Dict[str, Any] with tui_defaults_file path
+        dependencies:
+        - phases/phase_2_tui_mapping/step_1_transform_defaults/defaults_transformer.py
+        - artifact: defaults_mapping_config
+          type: REFERENCE_DATA
+          location: src/openproject_config_manager/core/defaults_map.json
+          purpose: Defines field mappings from enhanced → TUI format
+        side_effects:
+        - action: reads
+          artifact: enhanced_defaults_file
+          location: phases/phase_1_discovery/outputs/discovery/enhanced_defaults.yml
+          method: yaml.safe_load()
+        - action: reads
+          artifact: defaults_mapping_config
+          location: src/openproject_config_manager/core/defaults_map.json
+          method: json.load()
+        - action: writes
+          artifact: tui_defaults_file
+          location: phases/phase_2_tui_mapping/outputs/tui/tui_defaults.yml
+          transformation: DefaultsTransformer.transform_enhanced_defaults()
+      data_flow:
+        input_file:
+        - enhanced_defaults_file
+        - defaults_mapping_config
+        processing: Load YAML files → apply field mapping → flatten {value} fields
+          → write simple YAML
+        output_file:
+        - tui_defaults_file
+      sequence: 2
+    - phase_id: collection
+      name: Interactive Collection
+      status: IMPLEMENTED
+      description: Collect user configuration via interactive UI
+      sub_flows:
+      - collection_flow
+      artifacts_produced:
+      - user_configuration
+      artifacts_consumed:
+      - tui_defaults_file
+      implementation:
+        phase_directory: phases/phase_3_collection/
+        orchestrator_file: phases/phase_3_collection/orchestrator_collection.py
+        module: phases.phase_3_collection
+        class: CollectionPhase
+        method: execute(context)
+        note: Uses tui-form-engine library for interactive forms. Supports mock responses
+          for testing.
+        dependencies:
+        - phases/phase_3_collection/step_1_collect_user_configuration/tui_collector.py
+        - phases/phase_3_collection/step_1_collect_user_configuration/layouts/config_tui.layout.yml
+        - 'external library: tui-form-designer (optional - can use mock responses)'
+        side_effects:
+        - action: reads
+          artifact: tui_defaults_file
+          location: phases/phase_2_tui_mapping/outputs/tui/tui_defaults.yml
+        - action: writes
+          artifact: user_configuration
+          location: phases/phase_3_collection/outputs/collected_configuration.yml
+        - action: writes
+          artifact: user_responses
+          location: phases/phase_3_collection/outputs/config_tui.layout_responses.json
+          note: Raw JSON responses for debugging
+      sequence: 3
+    - phase_id: validation
+      name: Validation Phase
+      status: IMPLEMENTED
+      description: Validate collected configuration
+      sub_flows:
+      - validation_flow
+      artifacts_produced:
+      - validated_configuration
+      - validation_report
+      artifacts_consumed:
+      - user_configuration
+      implementation:
+        phase_directory: phases/phase_4_validation/
+        orchestrator_file: phases/phase_4_validation/orchestrator_validation.py
+        module: phases.phase_4_validation
+        class: ValidationPhase
+        method: execute(context)
+        dependencies:
+        - phases/phase_4_validation/step_1_schema_validation/schema_validator.py
+        - phases/phase_4_validation/step_2_dependency_validation/dependency_validator.py
+        - phases/phase_4_validation/step_3_environment_validation/environment_validator.py
+        side_effects:
+        - action: reads
+          artifact: user_configuration
+          location: phases/phase_3_collection/outputs/collected_configuration.yml
+        - action: writes
+          artifact: validation_report
+          location: phases/outputs/validation_report.yml
+      sequence: 4
+    - phase_id: export
+      name: Export Phase
+      status: IMPLEMENTED
+      description: Export final configuration files for deployment
+      artifacts_produced:
+      - final_configuration_files
+      artifacts_consumed:
+      - validated_configuration
+      implementation:
+        phase_directory: phases/phase_5_export/
+        orchestrator_file: phases/phase_5_export/orchestrator_export.py
+        module: phases.phase_5_export
+        class: ExportPhase
+        method: execute(context)
+        note: Outputs to phases/outputs/ for deploy-manager consumption
+        dependencies:
+        - phases/phase_5_export/cfg_writer.py
+        side_effects:
+        - action: reads
+          artifact: validated_configuration
+          location: phases/outputs/validation_report.yml
+        - action: writes
+          artifact: docker-compose.yml
+          location: phases/outputs/docker-compose.yml
+          note: Final deployment file for deploy-manager
+        - action: writes
+          artifact: .env
+          location: phases/outputs/.env
+          note: Environment configuration for deploy-manager
+        - action: writes
+          artifact: configuration_manifest.yml
+          location: phases/outputs/configuration_manifest.yml
+          note: Metadata and manifest for deploy-manager
+      sequence: 5
+  discovery_flow:
+    description: System Discovery Process
+    steps:
+    - step_id: env_discovery
+      name: Environment Discovery
+      status: IMPLEMENTED
+      description: Detect Docker, system capabilities, network configuration
+    - step_id: system_discovery
+      name: System Discovery
+      status: IMPLEMENTED
+      description: Analyze system resources, ports, services
+    - step_id: defaults_generation
+      name: Intelligent Defaults Generation
+      status: IMPLEMENTED
+      description: Generate enhanced defaults based on discovery data
+  validation_flow:
+    description: Configuration Validation Process
+    steps:
+    - step_id: schema_validation
+      name: Schema Validation
+      status: IMPLEMENTED
+      description: Validate against configuration schema
+    - step_id: dependency_validation
+      name: Dependency Validation
+      status: IMPLEMENTED
+      description: Check for conflicts and dependencies
+    - step_id: environment_validation
+      name: Environment Validation
+      status: IMPLEMENTED
+      description: Validate against current environment constraints
+  tui_mapping_flow:
+    description: TUI Defaults Mapping Process
+    steps:
+    - step_id: transform_defaults
+      name: Transform Defaults to TUI Format
+      status: IMPLEMENTED
+      description: Load enhanced defaults and mapping config, apply transformations,
+        write TUI defaults file
+  collection_flow:
+    description: Interactive Configuration Collection Process
+    steps:
+    - step_id: collect_user_configuration
+      name: Collect User Configuration
+      status: IMPLEMENTED
+      description: Load TUI layout and defaults, render interactive form, collect
+        user input, save configuration
+decision_points:
+  continue_on_validation_failure:
+    description: Whether to continue if validation finds non-critical issues
+    options:
+    - continue
+    - abort
+    - fix_and_retry
+    default: fix_and_retry
+  skip_discovery:
+    description: Whether to skip discovery if existing defaults found
+    options:
+    - skip
+    - refresh
+    - merge
+    default: merge

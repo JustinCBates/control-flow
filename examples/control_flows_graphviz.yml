@@ -1,0 +1,98 @@
+phases:
+- id: discovery
+  name: Discovery Phase
+  status: implemented
+  description: Discover system environment and generate intelligent defaults
+  artifacts_produced:
+  - discovery_data
+  - enhanced_defaults_file
+  artifacts_consumed: []
+  dependencies: []
+- id: tui_mapping
+  name: TUI Defaults Mapping
+  status: implemented
+  description: Transform rich enhanced defaults to simple TUI format
+  artifacts_produced:
+  - tui_defaults_file
+  artifacts_consumed:
+  - enhanced_defaults_file
+  dependencies:
+  - discovery
+- id: collection
+  name: Interactive Collection
+  status: implemented
+  description: Collect user configuration via interactive UI
+  artifacts_produced:
+  - user_configuration
+  artifacts_consumed:
+  - tui_defaults_file
+  dependencies:
+  - tui_mapping
+- id: validation
+  name: Validation Phase
+  status: implemented
+  description: Validate collected configuration
+  artifacts_produced:
+  - validated_configuration
+  - validation_report
+  artifacts_consumed:
+  - user_configuration
+  dependencies:
+  - collection
+- id: export
+  name: Export Phase
+  status: implemented
+  description: Export final configuration files
+  artifacts_produced:
+  - final_configuration_files
+  artifacts_consumed:
+  - validated_configuration
+  dependencies:
+  - validation
+artifacts:
+- name: discovery_data
+  description: Raw discovery data from environment scanning
+  producers:
+  - discovery
+  consumers: []
+  lifecycle: persistent
+- name: enhanced_defaults_file
+  description: Rich defaults with discovery data and recommendations
+  producers:
+  - discovery
+  consumers:
+  - tui_mapping
+  lifecycle: persistent
+- name: tui_defaults_file
+  description: Simplified defaults for TUI display
+  producers:
+  - tui_mapping
+  consumers:
+  - collection
+  lifecycle: persistent
+- name: user_configuration
+  description: Configuration collected from user via TUI
+  producers:
+  - collection
+  consumers:
+  - validation
+  lifecycle: persistent
+- name: validated_configuration
+  description: User configuration after validation
+  producers:
+  - validation
+  consumers:
+  - export
+  lifecycle: persistent
+- name: validation_report
+  description: Validation results and any issues found
+  producers:
+  - validation
+  consumers: []
+  lifecycle: persistent
+- name: final_configuration_files
+  description: Final exported configuration files
+  producers:
+  - export
+  consumers: []
+  lifecycle: persistent

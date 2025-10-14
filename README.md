@@ -4,12 +4,22 @@ A powerful, reusable control flow engine and visualization system for complex so
 
 ## 🚀 Features
 
+### Core Capabilities
 - **📊 Flow Visualization**: Generate professional diagrams with Graphviz from YAML specifications
 - **🔍 Flow Analysis**: Validate and analyze control flow completeness and consistency
 - **🛠️ CLI Interface**: Professional command-line tools for flow management
 - **📋 YAML Configuration**: Clean, structured flow definitions
 - **🎯 Design-First**: Plan flows before implementation
-- **�️ Multiple Formats**: Output to SVG, PNG, PDF for documentation and presentations
+- **🖼️ Multiple Formats**: Output to SVG, PNG, PDF for documentation and presentations
+
+### ✨ NEW: Greenfield (Design-First) Workflow 
+- **🏗️ Auto-Scaffolding**: Automatically generate complete project structure from specs
+- **🔄 Orchestrator Integration**: Steps automatically added to phase orchestrators
+- **📈 Progress Tracking**: Real-time implementation status and metrics
+- **✅ Validation**: Catch specification errors before runtime
+- **📝 Documentation**: Auto-generated README files for phases and steps
+
+**See [Phase 2 Documentation](docs/PHASE2_IMPLEMENTATION_COMPLETE.md) for complete guide.**
 
 ## 📦 Installation
 

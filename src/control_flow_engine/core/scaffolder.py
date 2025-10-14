@@ -80,6 +80,62 @@ class ScaffoldGenerator:
             project_root: Root directory of the project
         """
         self.project_root = project_root
+    
+    def create_phase_scaffolding(
+        self,
+        phase: PhaseInsertion,
+        base_path: Path
+    ) -> Dict[str, Path]:
+        """
+        Create directory structure and files for a new phase.
+        
+        Args:
+            phase: Phase definition
+            base_path: Base directory (e.g., phases/)
+            
+        Returns:
+            Dict mapping file types to created paths
+        """
+        created_files = {}
+        
+        # Create phase directory
+        phase_dir = base_path / f"phase_{phase.sequence}_{phase.phase_id}"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        created_files['directory'] = phase_dir
+        
+        # Create __init__.py
+        init_file = phase_dir / "__init__.py"
+        init_content = self._generate_phase_init(phase)
+        init_file.write_text(init_content)
+        created_files['init'] = init_file
+        
+        # Create orchestrator file
+        orchestrator_name = f"orchestrator_{phase.phase_id}.py"
+        orchestrator_file = phase_dir / orchestrator_name
+        orchestrator_content = self._generate_phase_orchestrator(phase)
+        orchestrator_file.write_text(orchestrator_content)
+        created_files['orchestrator'] = orchestrator_file
+        
+        # Create outputs directory
+        outputs_dir = phase_dir / "outputs"
+        outputs_dir.mkdir(exist_ok=True)
+        created_files['outputs_dir'] = outputs_dir
+        
+        # Create README
+        readme_file = phase_dir / "README.md"
+        readme_content = self._generate_phase_readme(phase)
+        readme_file.write_text(readme_content)
+        created_files['readme'] = readme_file
+        
+        print(f"✅ Created phase scaffolding at {phase_dir}")
+        
+        # Create initial steps if specified
+        if phase.initial_steps:
+            for step in phase.initial_steps:
+                step_files = self.create_step_scaffolding(step, phase_dir)
+                created_files[f'step_{step.step_id}'] = step_files
+        
+        return created_files
         
     def create_step_scaffolding(
         self,
@@ -150,6 +206,221 @@ class ScaffoldGenerator:
         print(f"✅ Created step scaffolding at {step_dir}")
         
         return created_files
+    
+    def _generate_phase_init(self, phase: PhaseInsertion) -> str:
+        """Generate __init__.py content for a phase."""
+        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
+        
+        return f'''"""
+{phase.name}
+{phase.description}
+"""
+
+from .orchestrator_{phase.phase_id} import {class_name}
+
+__all__ = ['{class_name}']
+'''
+    
+    def _generate_phase_orchestrator(self, phase: PhaseInsertion) -> str:
+        """Generate orchestrator file for a phase."""
+        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
+        
+        return f'''#!/usr/bin/env python3
+"""
+{phase.name}
+Status: {phase.status.value}
+
+{phase.description}
+"""
+
+from pathlib import Path
+from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class {class_name}:
+    """
+    {phase.name}
+    
+    Status: {phase.status.value}
+    Sequence: {phase.sequence}
+    
+    {phase.description}
+    """
+    
+    PHASE_ID = "{phase.phase_id}"
+    PHASE_SEQUENCE = {phase.sequence}
+    PHASE_NAME = "{phase.name}"
+    
+    def __init__(self, project_root: Path, ui=None):
+        """
+        Initialize {phase.name}.
+        
+        Args:
+            project_root: Root directory of the project
+            ui: Optional UI interface for user interaction
+        """
+        self.project_root = project_root
+        self.ui = ui
+        self.phase_dir = project_root / "phases" / f"phase_{phase.sequence}_{phase.phase_id}"
+        self.outputs_dir = self.phase_dir / "outputs"
+        
+        # Ensure outputs directory exists
+        self.outputs_dir.mkdir(parents=True, exist_ok=True)
+    
+    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute {phase.name}.
+        
+        Args:
+            context: Execution context from previous phases
+            
+        Returns:
+            Dict with phase results and artifacts
+        """
+        logger.info("=" * 70)
+        logger.info(f"{{self.PHASE_NAME}}")
+        logger.info("=" * 70)
+        
+        if self.ui:
+            self.ui.show_phase_header(self.PHASE_NAME, "{phase.description}")
+        
+        # TODO: Implement phase logic
+        # 
+        # Example structure:
+        # 1. Validate context has required artifacts
+        # 2. Execute steps in sequence
+        # 3. Collect results
+        # 4. Save outputs to self.outputs_dir
+        # 5. Return artifacts for next phase
+        
+        logger.info(f"Executing {{self.PHASE_NAME}}...")
+        
+        result = {{
+            'phase': self.PHASE_ID,
+            'status': 'completed',
+            'artifacts': {{}}
+            # TODO: Add phase-specific results
+        }}
+        
+        logger.info(f"✅ {{self.PHASE_NAME}} completed")
+        
+        return result
+    
+    def _validate_context(self, context: Dict[str, Any]) -> bool:
+        """
+        Validate that context contains required artifacts.
+        
+        Args:
+            context: Execution context
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        # TODO: Add validation logic
+        required_keys = []  # List required context keys
+        
+        for key in required_keys:
+            if key not in context:
+                logger.error(f"❌ Required context key missing: {{key}}")
+                return False
+        
+        return True
+
+
+if __name__ == "__main__":
+    # Test standalone
+    import sys
+    logging.basicConfig(level=logging.INFO)
+    
+    project_root = Path(__file__).parent.parent.parent
+    phase = {class_name}(project_root)
+    
+    test_context = {{
+        'test_mode': True
+    }}
+    
+    result = phase.execute(test_context)
+    print(f"\\nResult: {{result}}")
+'''
+    
+    def _generate_phase_readme(self, phase: PhaseInsertion) -> str:
+        """Generate README for a phase."""
+        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
+        
+        return f'''# {phase.name}
+
+**Status**: {phase.status.value}  
+**Sequence**: {phase.sequence}  
+**Phase ID**: `{phase.phase_id}`
+
+## Description
+
+{phase.description}
+
+## Structure
+
+```
+phase_{phase.sequence}_{phase.phase_id}/
+├── __init__.py                     # Module initialization
+├── orchestrator_{phase.phase_id}.py # Main orchestrator class
+├── outputs/                        # Phase output artifacts
+└── README.md                       # This file
+```
+
+## Orchestrator
+
+- **File**: `orchestrator_{phase.phase_id}.py`
+- **Class**: `{class_name}`
+- **Method**: `execute(context) -> Dict[str, Any]`
+
+## Usage
+
+```python
+from phases.phase_{phase.sequence}_{phase.phase_id} import {class_name}
+
+phase = {class_name}(project_root)
+result = phase.execute(context)
+```
+
+## Implementation Checklist
+
+- [ ] Implement `execute()` method
+- [ ] Add context validation
+- [ ] Implement step execution
+- [ ] Add error handling
+- [ ] Add logging
+- [ ] Save artifacts to `outputs/`
+- [ ] Write unit tests
+- [ ] Update this README
+
+## Artifacts
+
+### Consumed
+- List artifacts this phase needs from previous phases
+
+### Produced
+- List artifacts this phase produces for later phases
+
+## Testing
+
+Run standalone:
+```bash
+cd phases/phase_{phase.sequence}_{phase.phase_id}
+python orchestrator_{phase.phase_id}.py
+```
+
+Run with project:
+```bash
+python run_phases.py --start {phase.sequence} --end {phase.sequence}
+```
+
+## Notes
+
+Add any phase-specific notes, gotchas, or implementation details here.
+'''
     
     def _generate_step_init(self, step: StepInsertion) -> str:
         """Generate __init__.py content for a step."""
