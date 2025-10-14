@@ -174,6 +174,137 @@ class ControlFlowManager:
             flow['planned_insertions'] = []
             
         return applied
+    
+    def insert_step_into_phase(
+        self,
+        flow_name: str,
+        phase_id: str,
+        step_data: Dict[str, Any],
+        insert_before: Optional[str] = None,
+        insert_after: Optional[str] = None
+    ) -> bool:
+        """
+        Insert a new step into a specific phase's steps array.
+        
+        Args:
+            flow_name: Name of the flow containing the phase
+            phase_id: ID of the phase to insert step into
+            step_data: Complete step definition dict
+            insert_before: Step ID to insert before
+            insert_after: Step ID to insert after
+            
+        Returns:
+            True if insertion succeeded, False otherwise
+        """
+        if flow_name not in self.flows:
+            print(f"❌ Flow '{flow_name}' not found")
+            return False
+        
+        flow = self.flows[flow_name]
+        
+        # Support both flow_steps and phases structure
+        if 'phases' in flow:
+            # Find the target phase
+            target_phase = None
+            for phase in flow['phases']:
+                if phase.get('phase_id') == phase_id:
+                    target_phase = phase
+                    break
+            
+            if not target_phase:
+                print(f"❌ Phase '{phase_id}' not found in flow '{flow_name}'")
+                return False
+            
+            # Ensure phase has steps array
+            if 'steps' not in target_phase:
+                target_phase['steps'] = []
+            
+            steps = target_phase['steps']
+            
+        elif 'flow_steps' in flow:
+            # Legacy structure - treat as single phase
+            steps = flow['flow_steps']
+        else:
+            print(f"❌ Flow '{flow_name}' has neither 'phases' nor 'flow_steps'")
+            return False
+        
+        # Find insertion point
+        insert_index = None
+        
+        if insert_after:
+            for i, step in enumerate(steps):
+                if step.get('step_id') == insert_after:
+                    insert_index = i + 1
+                    break
+        elif insert_before:
+            for i, step in enumerate(steps):
+                if step.get('step_id') == insert_before:
+                    insert_index = i
+                    break
+        else:
+            # If no position specified, append to end
+            insert_index = len(steps)
+        
+        if insert_index is None:
+            print(f"❌ Insertion point not found for {insert_before or insert_after}")
+            return False
+        
+        # Insert step
+        steps.insert(insert_index, step_data)
+        
+        print(f"✅ Inserted step '{step_data.get('step_id')}' into phase '{phase_id}' at position {insert_index}")
+        return True
+    
+    def get_phase(self, flow_name: str, phase_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a phase from a flow.
+        
+        Args:
+            flow_name: Name of the flow
+            phase_id: ID of the phase
+            
+        Returns:
+            Phase dictionary or None if not found
+        """
+        if flow_name not in self.flows:
+            return None
+        
+        flow = self.flows[flow_name]
+        
+        if 'phases' not in flow:
+            return None
+        
+        for phase in flow['phases']:
+            if phase.get('phase_id') == phase_id:
+                return phase
+        
+        return None
+    
+    def update_phase(self, flow_name: str, phase_id: str, updates: Dict[str, Any]) -> bool:
+        """
+        Update a phase's properties.
+        
+        Args:
+            flow_name: Name of the flow
+            phase_id: ID of the phase to update
+            updates: Dictionary of properties to update
+            
+        Returns:
+            True if update succeeded, False otherwise
+        """
+        phase = self.get_phase(flow_name, phase_id)
+        
+        if not phase:
+            print(f"❌ Phase '{phase_id}' not found in flow '{flow_name}'")
+            return False
+        
+        # Update phase properties
+        phase.update(updates)
+        
+        print(f"✅ Updated phase '{phase_id}' in flow '{flow_name}'")
+        return True
+        
+        return applied
         
     def generate_implementation_tasks(self) -> List[Dict[str, str]]:
         """Generate list of implementation tasks from the specification."""
@@ -315,11 +446,44 @@ def test_{step_id}_error_handling(self):
         
         return test_code
         
-    def save_specification(self):
-        """Save the current specification back to file."""
-        # This would regenerate the markdown with YAML blocks
-        # For now, just print what would be saved
-        print("📝 Specification would be saved with current changes")
+    def save_specification(self, output_path: Optional[Path] = None):
+        """
+        Save the current specification to YAML file.
+        
+        Args:
+            output_path: Path to save YAML file. If None, uses spec_file with .yml extension
+        """
+        if output_path is None:
+            # Convert .md to .yml if needed
+            if self.spec_file.suffix == '.md':
+                output_path = self.spec_file.with_suffix('.yml')
+            else:
+                output_path = self.spec_file
+        
+        # Build complete specification dictionary
+        spec_data = {}
+        
+        if self.entry_points:
+            spec_data['entry_points'] = self.entry_points
+        if self.flows:
+            spec_data['flows'] = self.flows
+        if self.decision_points:
+            spec_data['decision_points'] = self.decision_points
+        if self.external_interfaces:
+            spec_data['external_interfaces'] = self.external_interfaces
+        
+        # Write YAML with proper formatting
+        with open(output_path, 'w') as f:
+            yaml.dump(
+                spec_data,
+                f,
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+                allow_unicode=True
+            )
+        
+        print(f"✅ Saved specification to {output_path}")
         
     def get_development_prompt_suggestions(self) -> List[str]:
         """Get suggestions for development prompts."""
