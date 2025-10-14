@@ -8,15 +8,6 @@ from pathlib import Path
 # Add the src directory to Python path for local development
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-try:
-    from control_flow_engine.core.engine import FlowEngine
-    from control_flow_engine.visualizer.mermaid_generator import FlowVisualizer
-    from control_flow_engine.analysis.flow_analyzer import FlowAnalyzer
-except ImportError as e:
-    click.echo(f"❌ Import error: {e}")
-    click.echo("💡 Make sure to install the package: pip install -e .")
-    sys.exit(1)
-
 
 @click.group()
 @click.version_option(version="0.1.0")
@@ -163,6 +154,91 @@ def analyze(spec_file, output):
 
 
 @main.command()
+@click.argument('spec_file', type=click.Path(exists=True))
+@click.option('--output', '-o', type=click.Path(), default='.')
+@click.option('--dry-run', is_flag=True, help='Show what would be generated without creating files')
+@click.option('--force', is_flag=True, help='Overwrite existing files')
+def scaffold(spec_file, output, dry_run, force):
+    """Generate project scaffolding from control flow specification."""
+    try:
+        from control_flow_engine.scaffolding.generator import ScaffoldGenerator
+        
+        spec_path = Path(spec_file)
+        output_dir = Path(output)
+        
+        click.echo(f"🏗️  Scaffolding Generator")
+        click.echo(f"📋 Specification: {spec_path}")
+        click.echo(f"📁 Output: {output_dir}")
+        
+        if dry_run:
+            click.echo(f"🔍 DRY RUN MODE - No files will be created\n")
+        
+        generator = ScaffoldGenerator(spec_path, output_dir)
+        
+        if dry_run:
+            preview = generator.generate_scaffolding(dry_run=True)
+            
+            click.echo("📁 Directories to create:")
+            for d in preview.get('directories', []):
+                click.echo(f"  - {d}")
+            
+            click.echo(f"\n📄 Phase files ({len(preview.get('phase_files', []))}):")
+            for f in preview.get('phase_files', []):
+                click.echo(f"  - {f}")
+            
+            click.echo(f"\n📄 Step files ({len(preview.get('step_files', []))}):")
+            for f in preview.get('step_files', []):
+                click.echo(f"  - {f}")
+            
+            click.echo(f"\n📄 Output files ({len(preview.get('output_files', []))}):")
+            for f in preview.get('output_files', []):
+                click.echo(f"  - {f}")
+            
+            click.echo(f"\n📄 Entry point:")
+            for f in preview.get('entry_point', []):
+                click.echo(f"  - {f}")
+            
+            click.echo(f"\n📄 Metadata:")
+            for f in preview.get('metadata', []):
+                click.echo(f"  - {f}")
+            
+            total_files = (len(preview.get('phase_files', [])) + 
+                          len(preview.get('step_files', [])) + 
+                          len(preview.get('output_files', [])) + 
+                          len(preview.get('entry_point', [])) + 
+                          len(preview.get('metadata', [])))
+            
+            click.echo(f"\n📊 Total files to create: {total_files}")
+            click.echo(f"📊 Total directories: {len(preview.get('directories', []))}")
+            
+            return
+        
+        # Generate scaffolding
+        click.echo(f"\n🚀 Generating scaffolding...\n")
+        result = generator.generate_scaffolding()
+        
+        # Report results
+        click.echo(f"✅ Scaffolding generated successfully!")
+        click.echo(f"📁 Output directory: {output_dir}")
+        click.echo(f"📝 Phase files: {len(result['phase_files'])}")
+        click.echo(f"📝 Step files: {len(result['step_files'])}")
+        click.echo(f"📝 Output files: {len(result['output_files'])}")
+        click.echo(f"🧪 Test files: {len(result.get('test_files', []))}")
+        
+        click.echo(f"\n🚀 Next steps:")
+        click.echo(f"  1. cd {output_dir}")
+        click.echo(f"  2. Implement phase logic in phases/*/")
+        click.echo(f"  3. Run tests: python3 -m pytest phases/")
+        click.echo(f"  4. Run: python3 run.py --list")
+        
+    except Exception as e:
+        click.echo(f"❌ Scaffolding generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise click.Abort()
+
+
+@main.command()
 def info():
     """Show engine information and status."""
     click.echo("🔄 OpenProject Control Flow Engine v0.1.0")
@@ -174,6 +250,7 @@ def info():
     click.echo("  visualize - Generate diagrams and visualizations")
     click.echo("  serve     - Start interactive web interface")
     click.echo("  analyze   - Analyze flow complexity")
+    click.echo("  scaffold  - Generate project scaffolding")
     click.echo("  info      - Show this information")
 
 

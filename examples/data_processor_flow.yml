@@ -1,0 +1,152 @@
+# Example Control Flow Specification with Steps
+# Demonstrates new scaffolding structure
+
+component:
+  name: "data-processor"
+  description: "Sample data processing pipeline"
+  version: "1.0.0"
+
+entry_points:
+  process:
+    status: "PLANNED"
+    description: "Run data processing pipeline"
+    flow_id: "main_process_flow"
+
+flows:
+  main_process_flow:
+    description: "Primary data processing workflow"
+    phases:
+      - phase_id: "ingestion"
+        name: "Data Ingestion Phase"
+        status: "PLANNED"
+        description: "Ingest data from multiple sources"
+        # entry_file defaults to: orchestrator_ingestion.py
+        
+        steps:
+          - step_id: "database_fetch"
+            name: "Fetch from Database"
+            status: "PLANNED"
+            description: "Retrieve data from database"
+            # entry_file defaults to: database_fetch.py
+            
+          - step_id: "api_fetch"
+            name: "Fetch from API"
+            status: "PLANNED"
+            description: "Retrieve data from REST API"
+            # entry_file defaults to: api_fetch.py
+            
+          - step_id: "file_read"
+            name: "Read from Files"
+            status: "PLANNED"
+            description: "Read data from CSV/JSON files"
+            # entry_file defaults to: file_read.py
+        
+        artifacts_produced:
+          - artifact_id: "raw_data"
+            output_file: "outputs/raw_data.json"
+            format: "json"
+          - artifact_id: "ingestion_log"
+            output_file: "outputs/ingestion.log"
+            format: "text"
+        
+        artifacts_consumed: []
+      
+      - phase_id: "transformation"
+        name: "Data Transformation Phase"
+        status: "PLANNED"
+        description: "Transform and clean data"
+        # entry_file defaults to: orchestrator_transformation.py
+        
+        steps:
+          - step_id: "validation"
+            name: "Validate Data"
+            status: "PLANNED"
+            description: "Validate data against schema"
+            # entry_file defaults to: validation.py
+            
+          - step_id: "normalization"
+            name: "Normalize Data"
+            status: "PLANNED"
+            description: "Normalize data format"
+            # entry_file defaults to: normalization.py
+            
+          - step_id: "enrichment"
+            name: "Enrich Data"
+            status: "PLANNED"
+            description: "Enrich with additional information"
+            # entry_file defaults to: enrichment.py
+        
+        artifacts_produced:
+          - artifact_id: "transformed_data"
+            output_file: "outputs/transformed_data.json"
+            format: "json"
+          - artifact_id: "transformation_report"
+            output_file: "outputs/transformation_report.yml"
+            format: "yaml"
+        
+        artifacts_consumed:
+          - "raw_data"
+      
+      - phase_id: "export"
+        name: "Data Export Phase"
+        status: "PLANNED"
+        description: "Export processed data"
+        # entry_file defaults to: orchestrator_export.py
+        
+        steps:
+          - step_id: "format_conversion"
+            name: "Convert Format"
+            status: "PLANNED"
+            description: "Convert to target format"
+            # entry_file defaults to: format_conversion.py
+            
+          - step_id: "database_write"
+            name: "Write to Database"
+            status: "PLANNED"
+            description: "Write results to database"
+            # entry_file defaults to: database_write.py
+            
+          - step_id: "file_write"
+            name: "Write to Files"
+            status: "PLANNED"
+            description: "Write results to files"
+            # entry_file defaults to: file_write.py
+        
+        artifacts_produced:
+          - artifact_id: "exported_data"
+            output_file: "outputs/final_data.csv"
+            format: "csv"
+          - artifact_id: "export_manifest"
+            output_file: "outputs/export_manifest.yml"
+            format: "yaml"
+        
+        artifacts_consumed:
+          - "transformed_data"
+
+artifacts:
+  raw_data:
+    description: "Raw ingested data"
+    state: "FILE"
+    persistence: "TRANSIENT"
+    location: "phases/phase_1_ingestion/outputs/raw_data.json"
+    format: "json"
+    produced_by: ["ingestion"]
+    consumed_by: ["transformation"]
+  
+  transformed_data:
+    description: "Transformed and cleaned data"
+    state: "FILE"
+    persistence: "TRANSIENT"
+    location: "phases/phase_2_transformation/outputs/transformed_data.json"
+    format: "json"
+    produced_by: ["transformation"]
+    consumed_by: ["export"]
+  
+  exported_data:
+    description: "Final exported data"
+    state: "FILE"
+    persistence: "PERSISTENT"
+    location: "phases/phase_3_export/outputs/final_data.csv"
+    format: "csv"
+    produced_by: ["export"]
+    consumed_by: []
