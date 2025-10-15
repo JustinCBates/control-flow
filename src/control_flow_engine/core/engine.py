@@ -102,6 +102,17 @@ class ControlFlowManager:
         
         # Initialize transformer with loaded spec
         self.transformer = ControlFlowTransformation(self.spec, self.spec_file)
+    
+    def get_specification(self) -> Dict[str, Any]:
+        """
+        Get the loaded specification.
+        
+        Returns:
+            The complete specification dictionary
+        """
+        if not self.spec:
+            self.load_specification()
+        return self.spec
             
     def _parse_yaml_sections(self, content: str) -> Dict[str, Any]:
         """Parse YAML sections from markdown content."""

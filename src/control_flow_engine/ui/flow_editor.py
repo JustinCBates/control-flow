@@ -29,7 +29,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from control_flow_engine.core.designer import ControlFlowDesigner
-from control_flow_engine.core.manager import ControlFlowManager
+from control_flow_engine.core.engine import ControlFlowManager
 
 
 # Custom style for the TUI
@@ -68,8 +68,40 @@ class ControlFlowEditor:
             project_root: Path to the project root directory
         """
         self.project_root = Path(project_root)
-        self.designer = ControlFlowDesigner(project_root=str(self.project_root))
-        self.manager = ControlFlowManager(project_root=str(self.project_root))
+        
+        # Look for control_flows.yml in common locations
+        possible_spec_locations = [
+            self.project_root / "design_specs" / "control_flows.yml",
+            self.project_root / "specs" / "control_flows.yml",
+            self.project_root / "control_flows.yml",
+            self.project_root / "design_specs" / "control_flows.yaml",
+            self.project_root / "specs" / "control_flows.yaml",
+            self.project_root / "control_flows.yaml",
+        ]
+        
+        self.spec_file = None
+        for spec_path in possible_spec_locations:
+            if spec_path.exists():
+                self.spec_file = spec_path
+                print(f"✅ Found spec file: {spec_path}")
+                break
+        
+        if not self.spec_file:
+            print(f"❌ Error: Could not find control_flows.yml in:")
+            for loc in possible_spec_locations[:3]:
+                print(f"   - {loc}")
+            print(f"\nPlease create a control_flows.yml file in one of these locations.")
+            sys.exit(1)
+        
+        self.designer = ControlFlowDesigner(spec_file=self.spec_file, project_root=self.project_root)
+        self.manager = ControlFlowManager(spec_file=self.spec_file)
+        
+        # Load the specification
+        try:
+            self.manager.load_specification()
+        except Exception as e:
+            print(f"❌ Error loading specification: {e}")
+            sys.exit(1)
         
     def run(self):
         """Run the interactive editor."""
@@ -96,10 +128,27 @@ class ControlFlowEditor:
                     self._rollback_menu()
                     
             except KeyboardInterrupt:
-                print("\n\nOperation cancelled.")
+                print("\n\n⚠️  Operation cancelled by user.")
+                input("\nPress Enter to continue...")
                 continue
             except Exception as e:
-                print(f"\n❌ Error: {str(e)}")
+                # Clear any questionary UI artifacts
+                print("\n" + "=" * 70)
+                print("❌ ERROR OCCURRED")
+                print("=" * 70)
+                print(f"Error: {str(e)}")
+                print(f"Type: {type(e).__name__}")
+                
+                # Print traceback for debugging
+                import traceback
+                print("\nTraceback:")
+                traceback.print_exc()
+                
+                print("\n" + "=" * 70)
+                input("\nPress Enter to return to main menu...")
+                
+                # Re-print header to clean up terminal
+                self._print_header()
                 continue
     
     def _print_header(self):
@@ -108,7 +157,7 @@ class ControlFlowEditor:
         print("  Control Flow Editor - Interactive Transformation Tool")
         print("=" * 70)
         print(f"  Project: {self.project_root.name}")
-        print(f"  Flow: {self.manager.flow_name}")
+        print(f"  Spec File: {self.spec_file.name}")
         print("=" * 70 + "\n")
     
     def _print_goodbye(self):
@@ -143,42 +192,81 @@ class ControlFlowEditor:
     
     def _browse_flow(self):
         """Display the flow structure."""
-        print("\n" + "=" * 70)
-        print("  Current Flow Structure")
-        print("=" * 70 + "\n")
-        
-        spec = self.manager.get_specification()
-        flow = spec.get('flows', {}).get(self.manager.flow_name, {})
-        phases = flow.get('phases', [])
-        
-        if not phases:
-            print("⚠️  No phases found in flow.")
-            return
-        
-        # Sort phases by sequence
-        sorted_phases = sorted(phases, key=lambda p: p.get('sequence', 0))
-        
-        for phase in sorted_phases:
-            phase_seq = phase.get('sequence', '?')
-            phase_id = phase.get('phase_id', 'unknown')
-            phase_name = phase.get('name', 'Unnamed Phase')
+        try:
+            print("\n" + "=" * 70)
+            print("  Current Flow Structure")
+            print("=" * 70 + "\n")
             
-            print(f"[{phase_seq}] Phase: {phase_name} (ID: {phase_id})")
+            spec = self.manager.get_specification()
             
-            # Show steps if any
-            steps = phase.get('steps', [])
-            if steps:
-                sorted_steps = sorted(steps, key=lambda s: s.get('sequence', 0))
-                for step in sorted_steps:
-                    step_seq = step.get('sequence', '?')
-                    step_id = step.get('step_id', 'unknown')
-                    step_name = step.get('name', 'Unnamed Step')
-                    print(f"    [{step_seq}] {step_name} (ID: {step_id})")
-            else:
-                print("    (no steps)")
-            print()
-        
-        input("\nPress Enter to continue...")
+            # Check if we have phases directly in spec or under flows
+            phases_dict = spec.get('phases', {})
+            
+            if not phases_dict:
+                # Try alternate structure: flows -> phases
+                flows = spec.get('flows', {})
+                if flows:
+                    # Get first flow or main flow
+                    flow_name = 'main_deployment_flow' if 'main_deployment_flow' in flows else list(flows.keys())[0]
+                    phases_dict = flows.get(flow_name, {}).get('phases', {})
+            
+            if not phases_dict:
+                print("⚠️  No phases found in specification.")
+                input("\nPress Enter to continue...")
+                return
+            
+            # Convert dict to list and sort by sequence
+            phases_list = []
+            for phase_id, phase_data in phases_dict.items():
+                phase_info = {
+                    'phase_id': phase_id,
+                    'sequence': phase_data.get('sequence', 0),
+                    'name': phase_data.get('name', 'Unnamed Phase'),
+                    'description': phase_data.get('description', ''),
+                    'steps': phase_data.get('steps', []),
+                    'status': phase_data.get('status', 'unknown')
+                }
+                phases_list.append(phase_info)
+            
+            sorted_phases = sorted(phases_list, key=lambda p: p['sequence'])
+            
+            for phase in sorted_phases:
+                phase_seq = phase['sequence']
+                phase_id = phase['phase_id']
+                phase_name = phase['name']
+                phase_status = phase['status']
+                
+                print(f"[{phase_seq}] {phase_name}")
+                print(f"    ID: {phase_id}")
+                print(f"    Status: {phase_status}")
+                print(f"    Description: {phase['description']}")
+                
+                # Show steps if any
+                steps = phase['steps']
+                if steps:
+                    sorted_steps = sorted(steps, key=lambda s: s.get('sequence', 0))
+                    for step in sorted_steps:
+                        step_seq = step.get('sequence', '?')
+                        step_name = step.get('name', 'Unnamed Step')
+                        step_status = step.get('status', 'unknown')
+                        print(f"      [{step_seq}] {step_name} ({step_status})")
+                        
+                        # Show units if any
+                        units = step.get('units', [])
+                        if units:
+                            print(f"          Units: {', '.join(units)}")
+                else:
+                    print("      (no steps)")
+                print()
+            
+            input("\nPress Enter to continue...")
+            
+        except Exception as e:
+            print(f"\n❌ Error displaying flow structure: {e}")
+            import traceback
+            traceback.print_exc()
+            input("\nPress Enter to continue...")
+
     
     def _renumber_menu(self):
         """Renumber phases or steps."""
