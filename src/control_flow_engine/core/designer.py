@@ -552,6 +552,610 @@ class ControlFlowDesigner:
             'planned_steps': planned_steps,
             'overall_percentage': overall_percentage
         }
+    
+    # ========================================================================
+    # Transformation System Integration (Todo #7)
+    # ========================================================================
+    
+    def _get_transformer(self):
+        """Get or create ControlFlowTransformation instance."""
+        if not hasattr(self, '_transformer'):
+            from .transformation import ControlFlowTransformation
+            self._transformer = ControlFlowTransformation(str(self.spec_file))
+        return self._transformer
+    
+    def renumber_phase(
+        self,
+        phase_id: Optional[str] = None,
+        start_from: int = 1,
+        strategy: str = "compact",
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Renumber phases in the control flow, cleaning up sequence numbers.
+        
+        This operation preserves execution order while fixing sequence numbering.
+        For example, phases with sequences [0, 5, 7, 12] can be renumbered to [1, 2, 3, 4].
+        
+        Args:
+            phase_id: Specific phase ID to renumber steps within (None = renumber all phases)
+            start_from: Starting sequence number (default: 1, can be 0 or any int)
+            strategy: "compact" (remove gaps) or "minimal" (preserve relative spacing)
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results including:
+                - success: bool
+                - message: str
+                - preview: str (if preview_only=True)
+                - affected_files: List[str] (if applied)
+                
+        Example:
+            # Renumber all phases starting from 1
+            result = designer.renumber_phase()
+            
+            # Renumber all phases starting from 0
+            result = designer.renumber_phase(start_from=0)
+            
+            # Renumber steps within a specific phase
+            result = designer.renumber_phase(phase_id="phase_001", start_from=1)
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            # Plan the transformation
+            plan = transformer.plan_renumber(
+                flow_name=self.manager.flow_name,
+                phase_id=phase_id,
+                start_from=start_from,
+                strategy=strategy
+            )
+            
+            # Validate
+            validation = transformer.validate(plan)
+            if not validation.valid:
+                return {
+                    'success': False,
+                    'message': f"Validation failed: {', '.join(validation.errors)}",
+                    'errors': validation.errors,
+                    'warnings': validation.warnings
+                }
+            
+            # Preview if requested
+            if preview_only:
+                preview_text = transformer.preview(plan)
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'preview': preview_text,
+                    'warnings': validation.warnings
+                }
+            
+            # Apply with full workflow
+            result = transformer.apply(
+                plan,
+                save=True,
+                sync_directories=True,
+                update_code_paths=True,
+                regenerate_orchestrators=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            scope = f"phase {phase_id}" if phase_id else "all phases"
+            return {
+                'success': True,
+                'message': f"Renumbered {scope} starting from {start_from}",
+                'result': result,
+                'warnings': validation.warnings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def insert_phase(
+        self,
+        phase_data: Dict[str, Any],
+        insert_after: Optional[str] = None,
+        insert_before: Optional[str] = None,
+        cascade_renumber: bool = True,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Insert a new phase with automatic sync and regeneration.
+        
+        Args:
+            phase_data: Phase definition dict with required fields (phase_id, name, etc.)
+            insert_after: Insert after this phase_id (None = insert at end)
+            insert_before: Insert before this phase_id (overrides insert_after)
+            cascade_renumber: Whether to renumber subsequent phases
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results including:
+                - success: bool
+                - message: str
+                - preview: str (if preview_only=True)
+                - result: dict (if applied)
+            
+        Example:
+            # Insert at end
+            result = designer.insert_phase({
+                'phase_id': 'deployment',
+                'name': 'Deployment Phase',
+                'description': 'Deploy to production'
+            })
+            
+            # Insert after specific phase
+            result = designer.insert_phase(
+                phase_data={'phase_id': 'testing', 'name': 'Testing'},
+                insert_after='development'
+            )
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            # Validate required fields
+            if 'phase_id' not in phase_data:
+                return {
+                    'success': False,
+                    'message': "phase_data must include 'phase_id'",
+                    'error': 'Missing phase_id'
+                }
+            
+            plan = transformer.plan_insert(
+                flow_name=self.manager.flow_name,
+                phase_id=None,  # None = inserting a phase
+                new_element=phase_data,
+                insert_after=insert_after,
+                insert_before=insert_before,
+                cascade_renumber=cascade_renumber
+            )
+            
+            # Validate
+            validation = transformer.validate(plan)
+            if not validation.valid:
+                return {
+                    'success': False,
+                    'message': f"Validation failed: {', '.join(validation.errors)}",
+                    'errors': validation.errors,
+                    'warnings': validation.warnings
+                }
+            
+            # Preview if requested
+            if preview_only:
+                preview_text = transformer.preview(plan)
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'preview': preview_text,
+                    'warnings': validation.warnings
+                }
+            
+            # Apply with full workflow
+            result = transformer.apply(
+                plan,
+                save=True,
+                sync_directories=True,
+                update_code_paths=True,
+                regenerate_orchestrators=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            return {
+                'success': True,
+                'message': f"Phase '{phase_data.get('phase_id')}' inserted successfully",
+                'result': result,
+                'warnings': validation.warnings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def insert_step(
+        self,
+        phase_id: str,
+        step_data: Dict[str, Any],
+        insert_after: Optional[str] = None,
+        insert_before: Optional[str] = None,
+        cascade_renumber: bool = True,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Insert a new step into a phase with automatic sync and regeneration.
+        
+        Args:
+            phase_id: ID of the phase to insert the step into
+            step_data: Step definition dict with required fields (step_id, name, etc.)
+            insert_after: Insert after this step_id (None = insert at end)
+            insert_before: Insert before this step_id (overrides insert_after)
+            cascade_renumber: Whether to renumber subsequent steps
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.insert_step(
+                phase_id='development',
+                step_data={
+                    'step_id': 'code_review',
+                    'name': 'Code Review',
+                    'description': 'Review code changes'
+                },
+                insert_after='unit_tests'
+            )
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            # Validate required fields
+            if 'step_id' not in step_data:
+                return {
+                    'success': False,
+                    'message': "step_data must include 'step_id'",
+                    'error': 'Missing step_id'
+                }
+            
+            plan = transformer.plan_insert(
+                flow_name=self.manager.flow_name,
+                phase_id=phase_id,
+                new_element=step_data,
+                insert_after=insert_after,
+                insert_before=insert_before,
+                cascade_renumber=cascade_renumber
+            )
+            
+            # Validate
+            validation = transformer.validate(plan)
+            if not validation.valid:
+                return {
+                    'success': False,
+                    'message': f"Validation failed: {', '.join(validation.errors)}",
+                    'errors': validation.errors,
+                    'warnings': validation.warnings
+                }
+            
+            # Preview if requested
+            if preview_only:
+                preview_text = transformer.preview(plan)
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'preview': preview_text,
+                    'warnings': validation.warnings
+                }
+            
+            # Apply with full workflow
+            result = transformer.apply(
+                plan,
+                save=True,
+                sync_directories=True,
+                update_code_paths=True,
+                regenerate_orchestrators=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            return {
+                'success': True,
+                'message': f"Step '{step_data.get('step_id')}' inserted into phase '{phase_id}'",
+                'result': result,
+                'warnings': validation.warnings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def delete_phase(
+        self,
+        phase_id: str,
+        cascade_renumber: bool = True,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Delete a phase with automatic sync and regeneration.
+        
+        Args:
+            phase_id: ID of the phase to delete
+            cascade_renumber: Whether to renumber subsequent phases
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results including:
+                - success: bool
+                - message: str
+                - preview: str (if preview_only=True)
+                - result: dict (if applied)
+            
+        Example:
+            result = designer.delete_phase('testing', cascade_renumber=True)
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            plan = transformer.plan_delete(
+                flow_name=self.manager.flow_name,
+                element_id=phase_id,
+                phase_id=None,  # None = deleting a phase
+                cascade_renumber=cascade_renumber
+            )
+            
+            # Validate
+            validation = transformer.validate(plan)
+            if not validation.valid:
+                return {
+                    'success': False,
+                    'message': f"Validation failed: {', '.join(validation.errors)}",
+                    'errors': validation.errors,
+                    'warnings': validation.warnings
+                }
+            
+            # Preview if requested
+            if preview_only:
+                preview_text = transformer.preview(plan)
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'preview': preview_text,
+                    'warnings': validation.warnings
+                }
+            
+            # Apply with full workflow
+            result = transformer.apply(
+                plan,
+                save=True,
+                sync_directories=True,
+                update_code_paths=True,
+                regenerate_orchestrators=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            return {
+                'success': True,
+                'message': f"Phase '{phase_id}' deleted successfully",
+                'result': result,
+                'warnings': validation.warnings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def delete_step(
+        self,
+        phase_id: str,
+        step_id: str,
+        cascade_renumber: bool = True,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Delete a step from a phase with automatic sync and regeneration.
+        
+        Args:
+            phase_id: ID of the phase containing the step
+            step_id: ID of the step to delete
+            cascade_renumber: Whether to renumber subsequent steps
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.delete_step(
+                phase_id='development',
+                step_id='obsolete_task',
+                cascade_renumber=True
+            )
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            plan = transformer.plan_delete(
+                flow_name=self.manager.flow_name,
+                element_id=step_id,
+                phase_id=phase_id,
+                cascade_renumber=cascade_renumber
+            )
+            
+            # Validate
+            validation = transformer.validate(plan)
+            if not validation.valid:
+                return {
+                    'success': False,
+                    'message': f"Validation failed: {', '.join(validation.errors)}",
+                    'errors': validation.errors,
+                    'warnings': validation.warnings
+                }
+            
+            # Preview if requested
+            if preview_only:
+                preview_text = transformer.preview(plan)
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'preview': preview_text,
+                    'warnings': validation.warnings
+                }
+            
+            # Apply with full workflow
+            result = transformer.apply(
+                plan,
+                save=True,
+                sync_directories=True,
+                update_code_paths=True,
+                regenerate_orchestrators=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            return {
+                'success': True,
+                'message': f"Step '{step_id}' deleted from phase '{phase_id}'",
+                'result': result,
+                'warnings': validation.warnings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def get_transformation_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get transformation history.
+        
+        Args:
+            limit: Maximum number of entries to return
+            
+        Returns:
+            List of transformation history entries
+            
+        Example:
+            history = designer.get_transformation_history(limit=10)
+            for entry in history:
+                print(f"{entry['timestamp']}: {entry['transformation_type']}")
+        """
+        transformer = self._get_transformer()
+        return transformer.get_history(limit=limit)
+    
+    def rollback_transformation(
+        self,
+        steps: int = 1,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Rollback last N transformations.
+        
+        Args:
+            steps: Number of transformations to rollback
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.rollback_transformation(steps=1)
+            if result['success']:
+                print("Rollback successful")
+        """
+        transformer = self._get_transformer()
+        
+        try:
+            # Check if rollback is possible
+            if not transformer.history_manager.can_rollback(steps):
+                return {
+                    'success': False,
+                    'message': f"Cannot rollback {steps} step(s). Check history.",
+                    'available_rollbacks': transformer.history_manager.can_rollback(1)
+                }
+            
+            if preview_only:
+                # Get history entries that would be rolled back
+                history = transformer.get_history(limit=steps)
+                return {
+                    'success': True,
+                    'message': f"Would rollback {steps} transformation(s)",
+                    'preview': history
+                }
+            
+            # Perform rollback
+            transformer.rollback(
+                steps=steps,
+                save=True,
+                sync_directories=True,
+                project_base_path=self.project_root
+            )
+            
+            # Reload spec
+            self.manager.load_specification()
+            
+            return {
+                'success': True,
+                'message': f"Rolled back {steps} transformation(s)"
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def preview_transformation(
+        self,
+        operation: str,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Preview any transformation operation without applying it.
+        
+        Args:
+            operation: One of 'renumber_phase', 'renumber_step', 'insert_phase',
+                      'insert_step', 'delete_phase', 'delete_step'
+            **kwargs: Arguments for the specific operation
+            
+        Returns:
+            Dict with preview results
+            
+        Example:
+            preview = designer.preview_transformation(
+                'renumber_phase',
+                old_sequence=10,
+                new_sequence=15,
+                cascade_renumber=True
+            )
+            print(preview['preview'])
+        """
+        # Map operations to methods
+        operations = {
+            'renumber_phase': self.renumber_phase,
+            'renumber_step': self.renumber_step,
+            'insert_phase': self.insert_phase,
+            'insert_step': self.insert_step,
+            'delete_phase': self.delete_phase,
+            'delete_step': self.delete_step
+        }
+        
+        if operation not in operations:
+            return {
+                'success': False,
+                'message': f"Unknown operation: {operation}",
+                'valid_operations': list(operations.keys())
+            }
+        
+        # Call the operation with preview_only=True
+        kwargs['preview_only'] = True
+        return operations[operation](**kwargs)
 
 
 def main():

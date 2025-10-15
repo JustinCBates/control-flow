@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""
+Control Flow Editor Launcher
+
+Simple launcher script for the interactive flow editor.
+"""
+
+import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
+from control_flow_engine.ui.flow_editor import main
+
+if __name__ == '__main__':
+    main()

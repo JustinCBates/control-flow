@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 import yaml
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ImplementationStatus(Enum):
@@ -27,7 +30,7 @@ class StepInsertion:
     sequence: int
     description: str
     status: ImplementationStatus
-    step_type: str  # 'interactive', 'processing', 'io', 'validation'
+    step_type: str  # 'interactive', 'processing', 'io', 'validation' - for documentation only
     
     # Parent phase info
     phase_id: str
@@ -35,16 +38,6 @@ class StepInsertion:
     
     # Scaffolding options
     create_scaffolding: bool = True
-    
-    # TUI-specific
-    is_tui_form: bool = False
-    layout_file_name: Optional[str] = None
-    use_defaults_file: bool = False
-    defaults_file_name: Optional[str] = None
-    
-    # Mock responses
-    generate_mock_responses: bool = True
-    mock_responses: Optional[Dict[str, Any]] = None
     
     # Insert position
     insert_before: Optional[str] = None
@@ -81,40 +74,70 @@ class ScaffoldGenerator:
         """
         self.project_root = project_root
     
+    def _write_file_safe(self, path: Path, content: str, force: bool = False) -> bool:
+        """
+        Write file only if it doesn't exist or force=True.
+        
+        Args:
+            path: Path to file
+            content: File content
+            force: If True, overwrite existing files
+            
+        Returns:
+            True if file was written, False if skipped
+        """
+        if path.exists() and not force:
+            logger.warning(f"⚠️  Skipping existing file: {path}")
+            logger.info("    Use --force to overwrite existing files")
+            return False
+        
+        path.write_text(content)
+        logger.info(f"✅ Created: {path}")
+        return True
+
     def create_phase_scaffolding(
         self,
         phase: PhaseInsertion,
-        base_path: Path
-    ) -> Dict[str, Path]:
+        base_path: Path,
+        force: bool = False
+    ) -> Optional[Dict[str, Path]]:
         """
         Create directory structure and files for a new phase.
         
         Args:
             phase: Phase definition
             base_path: Base directory (e.g., phases/)
+            force: If True, overwrite existing files/directories
             
         Returns:
-            Dict mapping file types to created paths
+            Dict mapping file types to created paths, or None if skipped
         """
         created_files = {}
         
         # Create phase directory
         phase_dir = base_path / f"phase_{phase.sequence}_{phase.phase_id}"
+        
+        # Check if phase directory already exists
+        if phase_dir.exists() and not force:
+            logger.error(f"❌ Phase directory already exists: {phase_dir}")
+            logger.info("    Use --force to overwrite existing phase")
+            return None
+        
         phase_dir.mkdir(parents=True, exist_ok=True)
         created_files['directory'] = phase_dir
         
         # Create __init__.py
         init_file = phase_dir / "__init__.py"
         init_content = self._generate_phase_init(phase)
-        init_file.write_text(init_content)
-        created_files['init'] = init_file
+        if self._write_file_safe(init_file, init_content, force):
+            created_files['init'] = init_file
         
         # Create orchestrator file
         orchestrator_name = f"orchestrator_{phase.phase_id}.py"
         orchestrator_file = phase_dir / orchestrator_name
         orchestrator_content = self._generate_phase_orchestrator(phase)
-        orchestrator_file.write_text(orchestrator_content)
-        created_files['orchestrator'] = orchestrator_file
+        if self._write_file_safe(orchestrator_file, orchestrator_content, force):
+            created_files['orchestrator'] = orchestrator_file
         
         # Create outputs directory
         outputs_dir = phase_dir / "outputs"
@@ -124,86 +147,70 @@ class ScaffoldGenerator:
         # Create README
         readme_file = phase_dir / "README.md"
         readme_content = self._generate_phase_readme(phase)
-        readme_file.write_text(readme_content)
-        created_files['readme'] = readme_file
+        if self._write_file_safe(readme_file, readme_content, force):
+            created_files['readme'] = readme_file
         
-        print(f"✅ Created phase scaffolding at {phase_dir}")
+        logger.info(f"✅ Created phase scaffolding at {phase_dir}")
         
         # Create initial steps if specified
         if phase.initial_steps:
             for step in phase.initial_steps:
-                step_files = self.create_step_scaffolding(step, phase_dir)
-                created_files[f'step_{step.step_id}'] = step_files
+                step_files = self.create_step_scaffolding(step, phase_dir, force)
+                if step_files:
+                    created_files[f'step_{step.step_id}'] = step_files
         
         return created_files
         
     def create_step_scaffolding(
         self,
         step: StepInsertion,
-        base_path: Path
-    ) -> Dict[str, Path]:
+        base_path: Path,
+        force: bool = False
+    ) -> Optional[Dict[str, Path]]:
         """
         Create directory structure and files for a new step.
         
         Args:
             step: Step definition
             base_path: Base directory (e.g., phases/phase_1_discovery/)
+            force: If True, overwrite existing files/directories
             
         Returns:
-            Dict mapping file types to created paths
+            Dict mapping file types to created paths, or None if skipped
         """
         created_files = {}
         
         # Create step directory
         step_dir = base_path / f"step_{step.sequence}_{step.step_id}"
+        
+        # Check if step directory already exists
+        if step_dir.exists() and not force:
+            logger.error(f"❌ Step directory already exists: {step_dir}")
+            logger.info("    Use --force to overwrite existing step")
+            return None
+        
         step_dir.mkdir(parents=True, exist_ok=True)
         created_files['directory'] = step_dir
         
         # Create __init__.py
         init_file = step_dir / "__init__.py"
         init_content = self._generate_step_init(step)
-        init_file.write_text(init_content)
-        created_files['init'] = init_file
+        if self._write_file_safe(init_file, init_content, force):
+            created_files['init'] = init_file
         
-        # Create implementation file
+        # Create implementation file (generic stub only)
         impl_file = step_dir / f"{step.step_id}.py"
-        if step.is_tui_form:
-            impl_content = self._generate_tui_step_implementation(step)
-        else:
-            impl_content = self._generate_step_implementation(step)
-        impl_file.write_text(impl_content)
-        created_files['implementation'] = impl_file
-        
-        # Create TUI layout if needed
-        if step.is_tui_form:
-            layout_name = step.layout_file_name or f"{step.step_id}.layout.yml"
-            layout_file = step_dir / layout_name
-            layout_content = self._generate_tui_layout(step)
-            layout_file.write_text(layout_content)
-            created_files['layout'] = layout_file
-            
-            # Create defaults file if requested
-            if step.use_defaults_file:
-                defaults_name = step.defaults_file_name or f"{step.step_id}.defaults.yml"
-                defaults_file = step_dir / defaults_name
-                defaults_content = self._generate_tui_defaults(step)
-                defaults_file.write_text(defaults_content)
-                created_files['defaults'] = defaults_file
-        
-        # Create mock responses if requested
-        if step.generate_mock_responses:
-            mock_file = step_dir / "mock_responses.json"
-            mock_content = self._generate_mock_responses(step)
-            mock_file.write_text(mock_content)
-            created_files['mock_responses'] = mock_file
+        impl_content = self._generate_step_implementation(step)
+        if self._write_file_safe(impl_file, impl_content, force):
+            created_files['implementation'] = impl_file
         
         # Create README
         readme_file = step_dir / "README.md"
         readme_content = self._generate_step_readme(step)
-        readme_file.write_text(readme_content)
-        created_files['readme'] = readme_file
+        if self._write_file_safe(readme_file, readme_content, force):
+            created_files['readme'] = readme_file
         
-        print(f"✅ Created step scaffolding at {step_dir}")
+        logger.info(f"✅ Created step scaffolding at {step_dir}")
         
         return created_files
     
@@ -485,166 +492,6 @@ if __name__ == "__main__":
     print(f"\\nResult: {{result}}")
 '''
     
-    def _generate_tui_step_implementation(self, step: StepInsertion) -> str:
-        """Generate implementation file for a TUI form step."""
-        layout_name = step.layout_file_name or f"{step.step_id}.layout.yml"
-        
-        return f'''#!/usr/bin/env python3
-"""
-{step.name}
-Status: {step.status.value}
-
-{step.description}
-
-This step uses TUI Form Engine for interactive user input.
-"""
-
-from pathlib import Path
-from typing import Dict, Any
-import logging
-import sys
-
-# Import TUI Form Engine
-tui_path = Path(__file__).parent.parent.parent.parent.parent / 'tui-form-designer' / 'src'
-sys.path.insert(0, str(tui_path))
-from tui_form_engine.renderer import FormRenderer
-
-logger = logging.getLogger(__name__)
-
-
-def execute_{step.step_id}(context: Dict[str, Any], phase_dir: Path) -> Dict[str, Any]:
-    """
-    {step.name}
-    
-    This step uses TUI Form Engine for interactive user input.
-    
-    Args:
-        context: Execution context (may contain mock_responses)
-        phase_dir: Phase directory path
-        
-    Returns:
-        Dict containing:
-        - User responses from the form
-        - Any derived configuration
-    """
-    logger.info("=" * 70)
-    logger.info("{step.name}")
-    logger.info("=" * 70)
-    
-    # Path to TUI form layout
-    layout_path = phase_dir / "step_{step.sequence}_{step.step_id}" / "{layout_name}"
-    
-    if not layout_path.exists():
-        logger.error(f"❌ Layout file not found: {{layout_path}}")
-        return _get_default_config()
-    
-    # Create TUI renderer
-    renderer = FormRenderer()
-    
-    # Check for mock mode
-    mock_responses = None
-    if 'mock_responses' in context and '{step.step_id}' in context['mock_responses']:
-        mock_responses = context['mock_responses']['{step.step_id}']
-        logger.info("🤖 Running in MOCK mode")
-    
-    # Render the form
-    try:
-        response = renderer.render_flow(
-            flow_path=str(layout_path),
-            mock_responses=mock_responses,
-            quiet=context.get('quiet', False)
-        )
-        
-        responses = response.get('responses', {{}})
-        
-        logger.info(f"✅ Collected {{len(responses)}} responses")
-        
-        return {{
-            'step': '{step.step_id}',
-            'responses': responses,
-            'status': 'completed'
-        }}
-        
-    except KeyboardInterrupt:
-        logger.warning("⚠️  User cancelled")
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error: {{e}}")
-        return _get_default_config()
-
-
-def _get_default_config() -> Dict[str, Any]:
-    """Fallback configuration when form cannot be rendered."""
-    return {{
-        'step': '{step.step_id}',
-        'status': 'fallback',
-        'responses': {{}}
-    }}
-
-
-if __name__ == "__main__":
-    # Test standalone
-    import json
-    logging.basicConfig(level=logging.INFO)
-    
-    # Load mock responses
-    mock_file = Path(__file__).parent / "mock_responses.json"
-    mock_data = {{}}
-    if mock_file.exists():
-        with open(mock_file) as f:
-            mock_data = json.load(f)
-    
-    test_context = {{
-        'test_mode': True,
-        'mock_responses': {{'{step.step_id}': mock_data}}
-    }}
-    test_phase_dir = Path(__file__).parent.parent
-    
-    result = execute_{step.step_id}(test_context, test_phase_dir)
-    print(f"\\nResult: {{json.dumps(result, indent=2)}}")
-'''
-    
-    def _generate_tui_layout(self, step: StepInsertion) -> str:
-        """Generate TUI layout YAML template."""
-        return f'''flow_id: {step.step_id}
-title: "{step.name}"
-icon: "🔧"
-description: "{step.description}"
-
-metadata:
-  id: {step.step_id}
-  version: "1.0.0"
-  estimated_time: "30 seconds"
-
-# TODO: Add defaults_file if needed
-# defaults_file: {step.step_id}.defaults.yml
-
-steps:
-  # TODO: Define form steps
-  - id: example_input
-    type: text
-    message: "Enter a value:"
-    instruction: "Provide configuration input"
-    default: ""
-'''
-    
-    def _generate_tui_defaults(self, step: StepInsertion) -> str:
-        """Generate TUI defaults YAML template."""
-        return f'''# Default values for {step.name}
-# TODO: Add default values for form fields
-
-example_input: ""
-'''
-    
-    def _generate_mock_responses(self, step: StepInsertion) -> str:
-        """Generate mock responses JSON."""
-        if step.mock_responses:
-            return json.dumps(step.mock_responses, indent=2)
-        
-        return json.dumps({
-            "example_input": "test value"
-        }, indent=2)
-    
     def _generate_step_readme(self, step: StepInsertion) -> str:
         """Generate README for a step."""
         step_type_desc = {
@@ -653,20 +500,6 @@ example_input: ""
             'io': 'This step performs input/output operations.',
             'validation': 'This step validates data or configuration.'
         }.get(step.step_type, 'This step performs a specific operation.')
-        
-        # Build TUI section if applicable
-        tui_section = ""
-        if step.is_tui_form:
-            layout_name = step.layout_file_name or f"{step.step_id}.layout.yml"
-            tui_section = f'''
-### TUI Form
-
-This step uses the TUI Form Engine for interactive input.
-
-- **Layout file**: `{layout_name}`
-- **Mock responses**: `mock_responses.json` (for testing)
-'''
-        
         return f'''# {step.name}
 
 **Status**: {step.status.value}  
@@ -683,8 +516,6 @@ This step uses the TUI Form Engine for interactive input.
 
 - **Main file**: `{step.step_id}.py`
 - **Function**: `execute_{step.step_id}(context, phase_dir)`
-{tui_section}
-
 ## Testing
 
 Run standalone:

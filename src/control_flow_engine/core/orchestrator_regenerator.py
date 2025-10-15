@@ -822,6 +822,360 @@ class PhasesOrchestrator:
         # Custom dynamic execution logic here
         return context
 '''
+    
+    def regenerate_dual_mode_phase(
+        self,
+        orchestrator_file: Path,
+        phase_id: str,
+        flow_name: str = "main_config_flow"
+    ) -> bool:
+        """
+        Regenerate phase orchestrator with dual-mode support using Jinja2 template.
+        
+        This generates a phase orchestrator that supports both 'hardcoded' and 'dynamic' modes.
+        NEVER clobbers existing implementations - only fills in missing parts.
+        
+        Args:
+            orchestrator_file: Path to phase orchestrator file
+            phase_id: ID of the phase
+            flow_name: Name of flow containing the phase
+            
+        Returns:
+            True if successful
+        """
+        print(f"Regenerating dual-mode phase orchestrator: {orchestrator_file}")
+        
+        # Get phase from spec
+        flow = self.spec.get('flows', {}).get(flow_name)
+        if not flow:
+            print(f"❌ Flow '{flow_name}' not found in spec")
+            return False
+        
+        phase = None
+        for p in flow.get('phases', []):
+            if p.get('phase_id') == phase_id:
+                phase = p
+                break
+        
+        if not phase:
+            print(f"❌ Phase '{phase_id}' not found in flow '{flow_name}'")
+            return False
+        
+        # Prepare template data
+        phase_data = self._prepare_phase_template_data(phase, flow)
+        
+        # Check if orchestrator exists
+        if orchestrator_file.exists():
+            # Update existing orchestrator (preserve handwritten code)
+            return self._update_dual_mode_orchestrator(orchestrator_file, phase_data)
+        else:
+            # Generate new dual-mode orchestrator from template
+            return self._generate_dual_mode_orchestrator(orchestrator_file, phase_data)
+    
+    def _prepare_phase_template_data(
+        self,
+        phase: Dict[str, Any],
+        flow: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Prepare data for Jinja2 template rendering.
+        
+        Args:
+            phase: Phase specification from YAML
+            flow: Flow specification from YAML
+            
+        Returns:
+            Dict with template data
+        """
+        # Derive class name from phase_id
+        phase_id = phase.get('phase_id', '')
+        class_name = ''.join(word.capitalize() for word in phase_id.split('_')) + 'Phase'
+        
+        # Prepare steps data
+        steps = []
+        for step in phase.get('steps', []):
+            step_id = step.get('step_id', '')
+            step_class_name = ''.join(word.capitalize() for word in step_id.split('_')) + 'Step'
+            steps.append({
+                'step_id': step_id,
+                'name': step.get('name', step_id),
+                'description': step.get('description', ''),
+                'status': step.get('status', 'PLANNED'),
+                'class_name': step_class_name,
+                'units': step.get('units', [])
+            })
+        
+        return {
+            'phase': {
+                'phase_id': phase_id,
+                'name': phase.get('name', phase_id),
+                'description': phase.get('description', ''),
+                'status': phase.get('status', 'PLANNED'),
+                'class_name': class_name,
+                'phase_directory': phase.get('implementation', {}).get('phase_directory', f'phases/phase_{phase_id}'),
+                'artifacts_produced': phase.get('artifacts_produced', []),
+                'artifacts_consumed': phase.get('artifacts_consumed', []),
+                'steps': steps
+            },
+            'flow': {
+                'flow_id': flow.get('flow_id', 'main_config_flow'),
+                'description': flow.get('description', '')
+            }
+        }
+    
+    def _generate_dual_mode_orchestrator(
+        self,
+        orchestrator_file: Path,
+        phase_data: Dict[str, Any]
+    ) -> bool:
+        """
+        Generate new dual-mode orchestrator from Jinja2 template.
+        
+        Args:
+            orchestrator_file: Path to orchestrator file to create
+            phase_data: Prepared template data
+            
+        Returns:
+            True if successful
+        """
+        try:
+            from jinja2 import Environment, FileSystemLoader, select_autoescape
+            
+            # Find template directory
+            template_dir = Path(__file__).parent.parent.parent.parent / 'templates'
+            
+            if not template_dir.exists():
+                print(f"❌ Template directory not found: {template_dir}")
+                return False
+            
+            # Setup Jinja2 environment
+            env = Environment(
+                loader=FileSystemLoader(str(template_dir)),
+                autoescape=select_autoescape(),
+                trim_blocks=True,
+                lstrip_blocks=True
+            )
+            
+            # Load template
+            template = env.get_template('phase_orchestrator_dual_mode.py.j2')
+            
+            # Render template
+            content = template.render(**phase_data)
+            
+            # Write file
+            orchestrator_file.parent.mkdir(parents=True, exist_ok=True)
+            orchestrator_file.write_text(content)
+            
+            print(f"✅ Generated dual-mode orchestrator: {orchestrator_file}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to generate dual-mode orchestrator: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def _update_dual_mode_orchestrator(
+        self,
+        orchestrator_file: Path,
+        phase_data: Dict[str, Any]
+    ) -> bool:
+        """
+        Update existing orchestrator to add dual-mode support.
+        
+        NEVER clobbers existing implementations. Only adds missing methods/sections.
+        
+        Args:
+            orchestrator_file: Path to existing orchestrator file
+            phase_data: Prepared template data
+            
+        Returns:
+            True if successful
+        """
+        print(f"Updating existing orchestrator (preserving handwritten code)...")
+        
+        try:
+            original_content = orchestrator_file.read_text()
+            
+            # Check what's missing
+            has_mode_param = 'mode:' in original_content or 'mode =' in original_content
+            has_execute_dynamic = '_execute_dynamic' in original_content
+            has_execute_hardcoded = '_execute_hardcoded' in original_content
+            
+            if has_mode_param and has_execute_dynamic:
+                print("  ℹ️  Orchestrator already has dual-mode support")
+                # Still regenerate STEP_IMPORTS and STEP_EXECUTION markers
+                return self.regenerate_phase_orchestrator(
+                    orchestrator_file=orchestrator_file,
+                    phase_id=phase_data['phase']['phase_id'],
+                    flow_name=phase_data['flow']['flow_id']
+                )
+            
+            # Read as lines for easier manipulation
+            lines = original_content.split('\n')
+            
+            # Add mode parameter to __init__ if missing
+            if not has_mode_param:
+                lines = self._add_mode_parameter(lines)
+                print("  ✅ Added mode parameter to __init__")
+            
+            # Add _execute_dynamic method if missing
+            if not has_execute_dynamic:
+                dynamic_method = self._generate_execute_dynamic_method(phase_data)
+                lines = self._insert_method_before_execute(lines, dynamic_method, '_execute_dynamic')
+                print("  ✅ Added _execute_dynamic() method")
+            
+            # Rename existing execute() to _execute_hardcoded() if needed
+            if not has_execute_hardcoded and 'def execute(' in original_content:
+                lines = self._wrap_execute_with_mode_switch(lines)
+                print("  ✅ Added mode switching to execute() method")
+            
+            # Write updated content
+            updated_content = '\n'.join(lines)
+            orchestrator_file.write_text(updated_content)
+            
+            print(f"✅ Updated orchestrator with dual-mode support")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to update orchestrator: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def _add_mode_parameter(self, lines: List[str]) -> List[str]:
+        """Add mode parameter to __init__ method."""
+        new_lines = []
+        in_init = False
+        added = False
+        
+        for i, line in enumerate(lines):
+            if 'def __init__' in line:
+                in_init = True
+            
+            if in_init and not added and 'ui=' in line:
+                # Add mode parameter after ui
+                indent = len(line) - len(line.lstrip())
+                new_lines.append(line)
+                new_lines.append(' ' * indent + 'mode: str = \'hardcoded\',')
+                new_lines.append(' ' * indent + 'spec_file: Optional[Path] = None,')
+                new_lines.append(' ' * indent + 'phase_spec: Optional[Dict[str, Any]] = None')
+                added = True
+                continue
+            
+            if in_init and added and 'self.ui = ui' in line:
+                # Add mode instance variable
+                indent = len(line) - len(line.lstrip())
+                new_lines.append(line)
+                new_lines.append(' ' * indent + 'self.mode = mode')
+                new_lines.append(' ' * indent + 'self.spec_file = spec_file or self.project_root / "design_specs/control_flows.yml"')
+                new_lines.append(' ' * indent + 'self.phase_spec = phase_spec')
+                continue
+            
+            new_lines.append(line)
+        
+        return new_lines
+    
+    def _generate_execute_dynamic_method(self, phase_data: Dict[str, Any]) -> str:
+        """Generate _execute_dynamic method code."""
+        return '''    def _execute_dynamic(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute phase using YAML specification (dynamic mode).
+        
+        Reads steps from phase_spec['steps'] and executes them in sequence.
+        """
+        if not self.phase_spec:
+            logger.warning("No phase spec available, falling back to hardcoded mode")
+            return self._execute_hardcoded(context)
+        
+        logger.info("Using YAML-driven execution")
+        result = {'artifacts': {}}
+        
+        for step_spec in self.phase_spec.get('steps', []):
+            step_id = step_spec['step_id']
+            step_status = step_spec.get('status', 'PLANNED')
+            
+            if step_status in ['PLANNED', 'SKIPPED']:
+                logger.info(f"Skipping step {step_id} (status: {step_status})")
+                continue
+            
+            logger.info(f"Executing step: {step_id}")
+            
+            if 'units' in step_spec and step_spec['units']:
+                step_result = self._execute_step_with_units(step_spec, context)
+            else:
+                step_result = self._execute_step_traditional(step_spec, context)
+            
+            if step_result:
+                context.update(step_result.get("artifacts", {}))
+                result["artifacts"].update(step_result.get("artifacts", {}))
+        
+        return self._build_result(result, context)
+'''
+    
+    def _insert_method_before_execute(
+        self,
+        lines: List[str],
+        method_code: str,
+        method_name: str
+    ) -> List[str]:
+        """Insert method code before the execute method."""
+        new_lines = []
+        inserted = False
+        
+        for i, line in enumerate(lines):
+            if not inserted and 'def execute(' in line:
+                # Insert new method before execute
+                new_lines.extend(method_code.split('\n'))
+                new_lines.append('')
+                inserted = True
+            
+            new_lines.append(line)
+        
+        return new_lines
+    
+    def _wrap_execute_with_mode_switch(self, lines: List[str]) -> List[str]:
+        """Wrap existing execute() with mode switching logic."""
+        new_lines = []
+        in_execute = False
+        execute_indent = 0
+        first_statement_found = False
+        
+        for i, line in enumerate(lines):
+            if 'def execute(' in line:
+                in_execute = True
+                execute_indent = len(line) - len(line.lstrip())
+                new_lines.append(line)
+                continue
+            
+            if in_execute and not first_statement_found:
+                # Skip docstring and initial comments
+                if line.strip().startswith('"""') or line.strip().startswith("'''"):
+                    new_lines.append(line)
+                    continue
+                if line.strip().startswith('#') or not line.strip():
+                    new_lines.append(line)
+                    continue
+                
+                # Found first real statement - add mode switch
+                new_lines.append(' ' * (execute_indent + 4) + 'if self.mode == "dynamic":')
+                new_lines.append(' ' * (execute_indent + 8) + 'return self._execute_dynamic(context)')
+                new_lines.append(' ' * (execute_indent + 4) + 'else:')
+                new_lines.append(' ' * (execute_indent + 8) + 'return self._execute_hardcoded(context)')
+                new_lines.append('')
+                new_lines.append(' ' * (execute_indent + 4) + 'def _execute_hardcoded(self, context: Dict[str, Any]) -> Dict[str, Any]:')
+                new_lines.append(' ' * (execute_indent + 8) + '"""Hardcoded execution mode (original implementation)."""')
+                
+                first_statement_found = True
+                in_execute = False
+                
+                # Indent the rest of the method body
+                new_lines.append(' ' * (execute_indent + 8) + line.strip())
+                continue
+            
+            new_lines.append(line)
+        
+        return new_lines
 
 
 def main():
@@ -836,6 +1190,7 @@ def main():
     parser.add_argument('--flow', default='main_config_flow', help='Flow name')
     parser.add_argument('--library-name', help='Library name (required for library type)')
     parser.add_argument('--output-dir', type=Path, help='Output directory for library (default: phases/libraries/)')
+    parser.add_argument('--dual-mode', action='store_true', help='Generate/update with dual-mode support (hardcoded + dynamic)')
     
     args = parser.parse_args()
     
@@ -868,11 +1223,20 @@ def main():
             print("❌ --phase-id required for phase orchestrator")
             return 1
         
-        success = regenerator.regenerate_phase_orchestrator(
-            orchestrator_file=args.orchestrator,
-            phase_id=args.phase_id,
-            flow_name=args.flow
-        )
+        if args.dual_mode:
+            # Use dual-mode regeneration (adds dynamic support without clobbering)
+            success = regenerator.regenerate_dual_mode_phase(
+                orchestrator_file=args.orchestrator,
+                phase_id=args.phase_id,
+                flow_name=args.flow
+            )
+        else:
+            # Use standard regeneration (only updates markers)
+            success = regenerator.regenerate_phase_orchestrator(
+                orchestrator_file=args.orchestrator,
+                phase_id=args.phase_id,
+                flow_name=args.flow
+            )
     
     return 0 if success else 1
 

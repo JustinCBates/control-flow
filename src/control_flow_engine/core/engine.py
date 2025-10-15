@@ -11,6 +11,13 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 
+from .transformation import (
+    ControlFlowTransformation,
+    TransformationPlan,
+    ValidationResult,
+    TransformationType
+)
+
 
 class ImplementationStatus(Enum):
     """Status values for control flow elements (lowercase for YAML)."""
@@ -54,6 +61,7 @@ class ControlFlowManager:
         self.entry_points = {}
         self.decision_points = {}
         self.external_interfaces = {}
+        self.transformer: Optional[ControlFlowTransformation] = None
         
     def load_specification(self):
         """Load the YAML-based flow specification."""
@@ -62,18 +70,38 @@ class ControlFlowManager:
             
         with open(self.spec_file, 'r') as f:
             content = f.read()
-            
-        # Parse YAML sections
-        sections = self._parse_yaml_sections(content)
         
-        if 'Entry Points' in sections:
-            self.entry_points = sections['Entry Points']
-        if 'Flow Implementations' in sections:
-            self.flows = sections['Flow Implementations']
-        if 'Decision Points' in sections:
-            self.decision_points = sections['Decision Points']
-        if 'External Interfaces' in sections:
-            self.external_interfaces = sections['External Interfaces']
+        # Check if this is a pure YAML file or markdown with YAML blocks
+        if self.spec_file.suffix in ['.yml', '.yaml']:
+            # Pure YAML file - load directly
+            self.spec = yaml.safe_load(content)
+            self.entry_points = self.spec.get('entry_points', {})
+            self.flows = self.spec.get('flows', {})
+            self.decision_points = self.spec.get('decision_points', {})
+            self.external_interfaces = self.spec.get('external_interfaces', {})
+        else:
+            # Markdown file with YAML blocks
+            sections = self._parse_yaml_sections(content)
+            
+            if 'Entry Points' in sections:
+                self.entry_points = sections['Entry Points']
+            if 'Flow Implementations' in sections:
+                self.flows = sections['Flow Implementations']
+            if 'Decision Points' in sections:
+                self.decision_points = sections['Decision Points']
+            if 'External Interfaces' in sections:
+                self.external_interfaces = sections['External Interfaces']
+            
+            # Build complete spec structure
+            self.spec = {
+                'entry_points': self.entry_points,
+                'flows': self.flows,
+                'decision_points': self.decision_points,
+                'external_interfaces': self.external_interfaces
+            }
+        
+        # Initialize transformer with loaded spec
+        self.transformer = ControlFlowTransformation(self.spec, self.spec_file)
             
     def _parse_yaml_sections(self, content: str) -> Dict[str, Any]:
         """Parse YAML sections from markdown content."""
@@ -506,6 +534,401 @@ def test_{step_id}_error_handling(self):
                 )
                 
         return suggestions
+    
+    # ========================================================================
+    # TRANSFORMATION API - Safe, Validated Flow Modifications
+    # ========================================================================
+    
+    def create_transformation(
+        self,
+        transformation_type: str,
+        flow_name: str,
+        **kwargs
+    ) -> TransformationPlan:
+        """
+        Create a transformation plan for modifying the control flow.
+        
+        This is the primary API for all flow modifications. It creates a plan
+        that can be validated and previewed before applying.
+        
+        Args:
+            transformation_type: "renumber", "insert", "delete", "move", "update", "mock"
+            flow_name: Name of the flow to modify
+            **kwargs: Type-specific parameters
+            
+        Returns:
+            TransformationPlan ready for validation
+            
+        Example:
+            # Renumber sequences
+            plan = manager.create_transformation(
+                "renumber",
+                flow_name="main_config_flow",
+                phase_id="discovery",
+                start_from=1
+            )
+            
+            # Insert a new step
+            plan = manager.create_transformation(
+                "insert",
+                flow_name="main_config_flow",
+                phase_id="discovery",
+                new_element={...},
+                insert_after="env_discovery"
+            )
+        """
+        if not self.transformer:
+            raise RuntimeError("Transformer not initialized. Call load_specification() first.")
+        
+        ttype = transformation_type.lower()
+        
+        if ttype == "renumber":
+            return self.transformer.plan_renumber(
+                flow_name=flow_name,
+                phase_id=kwargs.get('phase_id'),
+                start_from=kwargs.get('start_from', 1),
+                strategy=kwargs.get('strategy', 'compact')
+            )
+        
+        elif ttype == "insert":
+            return self.transformer.plan_insert(
+                flow_name=flow_name,
+                phase_id=kwargs.get('phase_id'),
+                new_element=kwargs['new_element'],
+                insert_after=kwargs.get('insert_after'),
+                insert_before=kwargs.get('insert_before'),
+                cascade_renumber=kwargs.get('cascade_renumber', True)
+            )
+        
+        elif ttype == "delete":
+            return self.transformer.plan_delete(
+                flow_name=flow_name,
+                element_id=kwargs['element_id'],
+                phase_id=kwargs.get('phase_id'),
+                cascade_renumber=kwargs.get('cascade_renumber', True)
+            )
+        
+        else:
+            raise ValueError(
+                f"Unknown transformation type: {transformation_type}. "
+                f"Valid types: renumber, insert, delete, move, update, mock"
+            )
+    
+    def validate_transformation(self, plan: TransformationPlan) -> ValidationResult:
+        """
+        Validate a transformation plan.
+        
+        Args:
+            plan: The transformation plan to validate
+            
+        Returns:
+            ValidationResult with status and any errors/warnings
+        """
+        if not self.transformer:
+            raise RuntimeError("Transformer not initialized. Call load_specification() first.")
+        
+        return self.transformer.validate(plan)
+    
+    def preview_transformation(self, plan: TransformationPlan) -> str:
+        """
+        Generate a preview of what the transformation will do.
+        
+        Args:
+            plan: The transformation plan
+            
+        Returns:
+            Human-readable preview text
+        """
+        if not self.transformer:
+            raise RuntimeError("Transformer not initialized. Call load_specification() first.")
+        
+        return self.transformer.preview(plan)
+    
+    def apply_transformation(
+        self,
+        plan: TransformationPlan,
+        auto_validate: bool = True,
+        save: bool = True,
+        sync_directories: bool = False,
+        project_base_path: Optional[Path] = None,
+        dry_run_sync: bool = False,
+        update_code_paths: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Apply a validated transformation plan.
+        
+        Args:
+            plan: The transformation plan to apply
+            auto_validate: Automatically validate if not already done
+            save: Whether to save the new spec to file
+            sync_directories: Whether to synchronize directory structure
+            project_base_path: Base path for directory sync (auto-detected if None)
+            dry_run_sync: If True, preview directory ops without executing
+            update_code_paths: If True, update Python imports and config paths after directory sync
+            
+        Returns:
+            The new specification with transformations applied
+            
+        Raises:
+            ValueError: If plan is invalid
+        """
+        if not self.transformer:
+            raise RuntimeError("Transformer not initialized. Call load_specification() first.")
+        
+        # Auto-validate if needed
+        if auto_validate and plan.validation_result is None:
+            validation = self.transformer.validate(plan)
+            if not validation.valid:
+                raise ValueError(
+                    f"Transformation plan is invalid. Errors: {validation.errors}"
+                )
+        
+        # Apply transformation with directory sync and code path updates
+        new_spec = self.transformer.apply(
+            plan,
+            save=save,
+            sync_directories=sync_directories,
+            project_base_path=project_base_path,
+            dry_run_sync=dry_run_sync,
+            update_code_paths=update_code_paths
+        )
+        
+        # Update manager state
+        self.spec = new_spec
+        self.flows = new_spec.get('flows', {})
+        self.entry_points = new_spec.get('entry_points', {})
+        self.decision_points = new_spec.get('decision_points', {})
+        self.external_interfaces = new_spec.get('external_interfaces', {})
+        
+        return new_spec
+    
+    def transform_and_apply(
+        self,
+        transformation_type: str,
+        flow_name: str,
+        dry_run: bool = False,
+        sync_directories: bool = False,
+        project_base_path: Optional[Path] = None,
+        update_code_paths: bool = False,
+        **kwargs
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Convenience method: create, validate, and apply transformation in one call.
+        
+        Args:
+            transformation_type: Type of transformation
+            flow_name: Flow to modify
+            dry_run: If True, only show preview without applying
+            sync_directories: Whether to synchronize directory structure
+            project_base_path: Base path for directory sync
+            update_code_paths: If True, update Python imports and config paths after directory sync
+            **kwargs: Transformation-specific parameters
+            
+        Returns:
+            New specification if applied, None if dry_run
+        """
+        # Create plan
+        plan = self.create_transformation(transformation_type, flow_name, **kwargs)
+        
+        # Validate
+        validation = self.validate_transformation(plan)
+        
+        # Show preview
+        print(self.preview_transformation(plan))
+        
+        if not validation.valid:
+            print("\n❌ Cannot apply transformation due to validation errors")
+            return None
+        
+        if dry_run:
+            print("\n🔍 DRY RUN - No changes applied")
+            return None
+        
+        # Apply with directory sync and code path updates
+        return self.apply_transformation(
+            plan,
+            auto_validate=False,
+            sync_directories=sync_directories,
+            project_base_path=project_base_path,
+            update_code_paths=update_code_paths
+        )
+    
+    # ========================================================================
+    # LEGACY DIRECT MODIFICATION METHODS (DEPRECATED)
+    # ========================================================================
+    # The methods below directly modify the spec without validation.
+    # Prefer using the transformation API above for safer modifications.
+    # ========================================================================
+    
+    def renumber_sequences(
+        self,
+        flow_name: Optional[str] = None,
+        start_from: int = 1,
+        strategy: str = "compact",
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Renumber phase and step sequences in the control flow specification.
+        
+        This method fixes sequence numbering issues like:
+        - Steps numbered 0,1,2,3 → 1,2,3,4
+        - Phase gaps 1,2,3,5 → 1,2,3,4
+        
+        Args:
+            flow_name: Specific flow to renumber (None = all flows)
+            start_from: Starting sequence number (default: 1)
+            strategy: "compact" (remove all gaps) or "minimal" (preserve existing gaps)
+            dry_run: If True, show changes without applying them
+            
+        Returns:
+            Dict with renumbering report:
+            {
+                'flows_affected': int,
+                'phases_renumbered': int,
+                'steps_renumbered': int,
+                'changes': [{'flow': str, 'old': int, 'new': int, 'type': str}]
+            }
+        """
+        report = {
+            'flows_affected': 0,
+            'phases_renumbered': 0,
+            'steps_renumbered': 0,
+            'changes': []
+        }
+        
+        # Determine which flows to process
+        flows_to_process = {}
+        if flow_name:
+            if flow_name not in self.flows:
+                raise ValueError(f"Flow '{flow_name}' not found")
+            flows_to_process[flow_name] = self.flows[flow_name]
+        else:
+            flows_to_process = self.flows
+        
+        # Process each flow
+        for fname, flow_data in flows_to_process.items():
+            flow_changed = False
+            
+            # Renumber phases if they exist
+            if 'phases' in flow_data:
+                phases = flow_data['phases']
+                old_sequences = [p.get('sequence', 0) for p in phases]
+                
+                # Sort by current sequence
+                sorted_phases = sorted(phases, key=lambda p: p.get('sequence', 0))
+                
+                # Apply renumbering
+                for idx, phase in enumerate(sorted_phases):
+                    old_seq = phase.get('sequence', 0)
+                    
+                    if strategy == "compact":
+                        new_seq = start_from + idx
+                    else:  # minimal - only fix gaps
+                        new_seq = old_seq if old_seq >= start_from else start_from + idx
+                    
+                    if old_seq != new_seq:
+                        change = {
+                            'flow': fname,
+                            'type': 'phase',
+                            'phase_id': phase.get('phase_id', 'unknown'),
+                            'old_sequence': old_seq,
+                            'new_sequence': new_seq
+                        }
+                        report['changes'].append(change)
+                        
+                        if not dry_run:
+                            phase['sequence'] = new_seq
+                        
+                        flow_changed = True
+                        report['phases_renumbered'] += 1
+                    
+                    # Renumber steps within this phase
+                    if 'steps' in phase:
+                        steps = phase['steps']
+                        sorted_steps = sorted(steps, key=lambda s: s.get('sequence', 0))
+                        
+                        for step_idx, step in enumerate(sorted_steps):
+                            old_step_seq = step.get('sequence', 0)
+                            
+                            if strategy == "compact":
+                                new_step_seq = start_from + step_idx
+                            else:
+                                new_step_seq = old_step_seq if old_step_seq >= start_from else start_from + step_idx
+                            
+                            if old_step_seq != new_step_seq:
+                                change = {
+                                    'flow': fname,
+                                    'type': 'step',
+                                    'phase_id': phase.get('phase_id', 'unknown'),
+                                    'step_id': step.get('step_id', 'unknown'),
+                                    'old_sequence': old_step_seq,
+                                    'new_sequence': new_step_seq
+                                }
+                                report['changes'].append(change)
+                                
+                                if not dry_run:
+                                    step['sequence'] = new_step_seq
+                                
+                                flow_changed = True
+                                report['steps_renumbered'] += 1
+            
+            # Handle flows with direct steps (no phases)
+            elif 'flow_steps' in flow_data:
+                steps = flow_data['flow_steps']
+                sorted_steps = sorted(steps, key=lambda s: s.get('sequence', 0))
+                
+                for step_idx, step in enumerate(sorted_steps):
+                    old_step_seq = step.get('sequence', 0)
+                    
+                    if strategy == "compact":
+                        new_step_seq = start_from + step_idx
+                    else:
+                        new_step_seq = old_step_seq if old_step_seq >= start_from else start_from + step_idx
+                    
+                    if old_step_seq != new_step_seq:
+                        change = {
+                            'flow': fname,
+                            'type': 'flow_step',
+                            'step_id': step.get('step_id', 'unknown'),
+                            'old_sequence': old_step_seq,
+                            'new_sequence': new_step_seq
+                        }
+                        report['changes'].append(change)
+                        
+                        if not dry_run:
+                            step['sequence'] = new_step_seq
+                        
+                        flow_changed = True
+                        report['steps_renumbered'] += 1
+            
+            if flow_changed:
+                report['flows_affected'] += 1
+        
+        # Print report
+        if dry_run:
+            print("🔍 DRY RUN - No changes applied")
+        else:
+            print("✅ Renumbering complete")
+        
+        print(f"\n📊 Renumbering Report:")
+        print(f"  Flows affected: {report['flows_affected']}")
+        print(f"  Phases renumbered: {report['phases_renumbered']}")
+        print(f"  Steps renumbered: {report['steps_renumbered']}")
+        
+        if report['changes']:
+            print(f"\n📝 Changes ({len(report['changes'])}):")
+            for change in report['changes'][:10]:  # Show first 10
+                if change['type'] == 'phase':
+                    print(f"  Phase '{change['phase_id']}': seq {change['old_sequence']} → {change['new_sequence']}")
+                elif change['type'] == 'step':
+                    print(f"  Step '{change['step_id']}' in phase '{change['phase_id']}': seq {change['old_sequence']} → {change['new_sequence']}")
+                else:
+                    print(f"  Flow step '{change['step_id']}': seq {change['old_sequence']} → {change['new_sequence']}")
+            
+            if len(report['changes']) > 10:
+                print(f"  ... and {len(report['changes']) - 10} more")
+        
+        return report
 
 
 def main():
