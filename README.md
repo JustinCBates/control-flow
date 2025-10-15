@@ -180,6 +180,7 @@ This engine was consolidated from multiple OpenProject repositories to eliminate
 - **[Documentation Index](docs/DOCUMENTATION_INDEX.md)** - Complete index of all documentation
 - **[Transformation System](docs/TRANSFORMATION_SYSTEM.md)** - Complete API reference for safe YAML modifications
 - **[Quick Reference](docs/TRANSFORMATION_QUICK_REFERENCE.md)** - Common commands and patterns
+- **[Output Directory Architecture](docs/ARCHITECTURE_OUTPUT_DIRECTORIES.md)** - Runtime output directory structure
 - [Architecture Overview](docs/architecture.md)
 - [Visualization Guide](docs/visualization_guide.md)
 - [Visualizer Usage](docs/visualizer_usage.md)

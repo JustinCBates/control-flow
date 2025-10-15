@@ -19,6 +19,7 @@ Complete index of all active documentation for the Control Flow Engine and Trans
 
 | Document | Description |
 |----------|-------------|
+| [ARCHITECTURE_OUTPUT_DIRECTORIES.md](ARCHITECTURE_OUTPUT_DIRECTORIES.md) | **NEW**: Runtime output directory structure |
 | [architecture.md](architecture.md) | System architecture overview |
 | [visualization_guide.md](visualization_guide.md) | How to generate diagrams |
 | [visualizer_usage.md](visualizer_usage.md) | Visualizer API and examples |

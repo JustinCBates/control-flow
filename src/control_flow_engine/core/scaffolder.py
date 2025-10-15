@@ -271,7 +271,7 @@ class {class_name}:
         """
         self.project_root = project_root
         self.ui = ui
-        self.phase_dir = project_root / "phases" / f"phase_{phase.sequence}_{phase.phase_id}"
+        self.phase_dir = project_root / "runtime" / f"phase_{phase.sequence}_{phase.phase_id}"
         self.outputs_dir = self.phase_dir / "outputs"
         
         # Ensure outputs directory exists
