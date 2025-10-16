@@ -13,7 +13,6 @@ from typing import Dict, List, Any, Optional, Set, Tuple
 from enum import Enum
 from pathlib import Path
 import copy
-import yaml
 import json
 import shutil
 import re
@@ -25,6 +24,9 @@ from ..libraries.structure_ops import (
     StructureInserter, InsertOperation, InsertPosition, InsertionPoint,
     StructureRenumberer, RenumberOperation, RenumberStrategy
 )
+
+# Import universal YAML operation libraries
+from ..libraries.yaml_ops import YAMLSaver, SaveOptions
 
 
 class TransformationType(Enum):
@@ -1986,18 +1988,21 @@ class ControlFlowTransformation:
         # Apply transformations to create new spec
         new_spec = self._apply_plan_to_virtual_spec(plan)
         
-        # Save to file if requested
+        # Save to file if requested (using YAMLSaver library)
         if save and self.spec_file:
-            with open(self.spec_file, 'w') as f:
-                yaml.dump(
-                    new_spec,
-                    f,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    indent=2,
-                    allow_unicode=True
-                )
-            print(f"✅ Applied transformation and saved to {self.spec_file}")
+            saver = YAMLSaver()
+            options = SaveOptions(
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+                allow_unicode=True,
+                create_backup=False  # No backup for transformations
+            )
+            result = saver.save(new_spec, self.spec_file, options)
+            if result.success:
+                print(f"✅ Applied transformation and saved to {self.spec_file}")
+            else:
+                print(f"⚠️  Failed to save: {result.errors}")
         
         # Synchronize directories if requested
         dir_operations = []
@@ -2368,18 +2373,21 @@ class ControlFlowTransformation:
                 print(f"     ❌ Error rolling back: {e}")
                 raise ValueError(f"Rollback failed at step {i}: {e}")
         
-        # Save the rolled-back spec
+        # Save the rolled-back spec (using YAMLSaver library)
         if save and self.spec_file:
-            with open(self.spec_file, 'w') as f:
-                yaml.dump(
-                    current_spec,
-                    f,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    indent=2,
-                    allow_unicode=True
-                )
-            print(f"\n✅ Rolled-back spec saved to {self.spec_file}")
+            saver = YAMLSaver()
+            options = SaveOptions(
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+                allow_unicode=True,
+                create_backup=False
+            )
+            result = saver.save(current_spec, self.spec_file, options)
+            if result.success:
+                print(f"\n✅ Rolled-back spec saved to {self.spec_file}")
+            else:
+                print(f"\n⚠️  Failed to save rolled-back spec: {result.errors}")
         
         # Sync directories if requested
         if sync_directories:
@@ -2558,11 +2566,18 @@ def scaffold_transformer(
                 'action': step.get('action', ''),
             })
         
-        # Save new spec
+        # Save new spec (using YAMLSaver library)
         if save:
             spec_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(spec_file, 'w') as f:
-                yaml.dump(phase_spec, f, default_flow_style=False, sort_keys=False)
+            saver = YAMLSaver()
+            options = SaveOptions(
+                default_flow_style=False,
+                sort_keys=False,
+                create_backup=False
+            )
+            result_save = saver.save(phase_spec, spec_file, options)
+            if not result_save.success:
+                print(f"⚠️  Failed to save phase spec: {result_save.errors}")
         
         result['created'] = 'phase'
         
