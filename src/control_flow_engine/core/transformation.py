@@ -22,7 +22,8 @@ from datetime import datetime
 # Import universal structure operation libraries
 from ..libraries.structure_ops import (
     StructureDeleter, DeleteOperation,
-    StructureInserter, InsertOperation, InsertPosition, InsertionPoint
+    StructureInserter, InsertOperation, InsertPosition, InsertionPoint,
+    StructureRenumberer, RenumberOperation, RenumberStrategy
 )
 
 
@@ -1742,22 +1743,63 @@ class ControlFlowTransformation:
                 if not result.success:
                     print(f"⚠️  Insert failed: {result.errors}")
         
-        # Apply renumbers (keep inline - this is lightweight and specific to plan structure)
+        # Apply renumbers (using StructureRenumberer library)
+        renumberer = StructureRenumberer()
+        
+        # Group renumber mappings by scope (phases, steps per phase, flow_steps)
+        phase_mappings = {}
+        step_mappings = {}  # {phase_id: {step_id: new_seq}}
+        flow_step_mappings = {}
+        
         for mapping in plan.get_renumbers():
             if mapping.element_type == 'phase':
-                for phase in flow.get('phases', []):
-                    if phase.get('phase_id') == mapping.element_id:
-                        phase['sequence'] = mapping.new_sequence
+                phase_mappings[mapping.element_id] = mapping.new_sequence
             elif mapping.element_type == 'step':
-                for phase in flow.get('phases', []):
-                    if phase.get('phase_id') == mapping.old_parent:
-                        for step in phase.get('steps', []):
-                            if step.get('step_id') == mapping.element_id:
-                                step['sequence'] = mapping.new_sequence
+                phase_id = mapping.old_parent
+                if phase_id not in step_mappings:
+                    step_mappings[phase_id] = {}
+                step_mappings[phase_id][mapping.element_id] = mapping.new_sequence
             elif mapping.element_type == 'flow_step':
-                for step in flow.get('flow_steps', []):
-                    if step.get('step_id') == mapping.element_id:
-                        step['sequence'] = mapping.new_sequence
+                flow_step_mappings[mapping.element_id] = mapping.new_sequence
+        
+        # Apply phase renumbering
+        if phase_mappings:
+            operation = RenumberOperation(
+                strategy=RenumberStrategy.EXPLICIT,
+                explicit_mappings=phase_mappings,
+                element_path='phases',
+                id_field='phase_id'
+            )
+            result = renumberer.renumber(flow, operation)
+            if not result.success:
+                print(f"⚠️  Phase renumber failed: {result.errors}")
+        
+        # Apply step renumbering (per phase)
+        for phase_id, mappings in step_mappings.items():
+            operation = RenumberOperation(
+                strategy=RenumberStrategy.EXPLICIT,
+                explicit_mappings=mappings,
+                element_path='steps',
+                id_field='step_id',
+                parent_path='phases',
+                parent_id=phase_id,
+                parent_id_field='phase_id'
+            )
+            result = renumberer.renumber(flow, operation)
+            if not result.success:
+                print(f"⚠️  Step renumber failed for phase {phase_id}: {result.errors}")
+        
+        # Apply flow_step renumbering
+        if flow_step_mappings:
+            operation = RenumberOperation(
+                strategy=RenumberStrategy.EXPLICIT,
+                explicit_mappings=flow_step_mappings,
+                element_path='flow_steps',
+                id_field='step_id'
+            )
+            result = renumberer.renumber(flow, operation)
+            if not result.success:
+                print(f"⚠️  Flow step renumber failed: {result.errors}")
         
         return virtual_spec
     
