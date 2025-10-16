@@ -19,6 +19,12 @@ import shutil
 import re
 from datetime import datetime
 
+# Import universal structure operation libraries
+from ..libraries.structure_ops import (
+    StructureDeleter, DeleteOperation,
+    StructureInserter, InsertOperation, InsertPosition, InsertionPoint
+)
+
 
 class TransformationType(Enum):
     """Types of transformations that can be applied."""
@@ -1655,6 +1661,10 @@ class ControlFlowTransformation:
             
         Returns:
             Transformed specification
+            
+        NOTE: This method has been refactored to use universal structure operation
+        libraries instead of inline manipulation logic. This eliminates code
+        duplication and ensures consistent behavior across the system.
         """
         virtual_spec = copy.deepcopy(spec if spec is not None else self.original_spec)
         
@@ -1663,34 +1673,76 @@ class ControlFlowTransformation:
         
         flow = virtual_spec['flows'][plan.flow_name]
         
-        # Apply deletions first
+        # Initialize deleter and inserter (universal libraries)
+        deleter = StructureDeleter()
+        inserter = StructureInserter()
+        
+        # Apply deletions first (using StructureDeleter library)
         for mapping in plan.get_deletes():
             if mapping.element_type == 'phase':
-                if 'phases' in flow:
-                    flow['phases'] = [p for p in flow['phases'] if p.get('phase_id') != mapping.element_id]
+                operation = DeleteOperation(
+                    element_id=mapping.element_id,
+                    cascade_renumber=False,  # Manual renumber via plan mappings
+                    element_path='phases',
+                    id_field='phase_id'
+                )
+                result = deleter.delete_element(flow, operation)
+                if not result.success:
+                    print(f"⚠️  Delete failed: {result.errors}")
+                    
             elif mapping.element_type == 'step':
-                for phase in flow.get('phases', []):
-                    if phase.get('phase_id') == mapping.old_parent:
-                        if 'steps' in phase:
-                            phase['steps'] = [s for s in phase['steps'] if s.get('step_id') != mapping.element_id]
+                operation = DeleteOperation(
+                    element_id=mapping.element_id,
+                    cascade_renumber=False,
+                    element_path='steps',
+                    id_field='step_id',
+                    parent_path='phases',
+                    parent_id=mapping.old_parent,
+                    parent_id_field='phase_id'
+                )
+                result = deleter.delete_element(flow, operation)
+                if not result.success:
+                    print(f"⚠️  Delete failed: {result.errors}")
         
-        # Apply inserts
+        # Apply inserts (using StructureInserter library)
         for mapping in plan.get_inserts():
             new_element = mapping.metadata.get('element_data', {})
             new_element['sequence'] = mapping.new_sequence
             
             if mapping.element_type == 'phase':
-                if 'phases' not in flow:
-                    flow['phases'] = []
-                flow['phases'].append(new_element)
+                operation = InsertOperation(
+                    new_element=new_element,
+                    insertion_point=InsertionPoint(
+                        position=InsertPosition.AT_SEQUENCE,
+                        target_sequence=mapping.new_sequence
+                    ),
+                    cascade_renumber=False,  # Manual renumber via plan mappings
+                    element_path='phases',
+                    id_field='phase_id'
+                )
+                result = inserter.insert_element(flow, operation)
+                if not result.success:
+                    print(f"⚠️  Insert failed: {result.errors}")
+                    
             elif mapping.element_type == 'step':
-                for phase in flow.get('phases', []):
-                    if phase.get('phase_id') == mapping.new_parent:
-                        if 'steps' not in phase:
-                            phase['steps'] = []
-                        phase['steps'].append(new_element)
+                operation = InsertOperation(
+                    new_element=new_element,
+                    insertion_point=InsertionPoint(
+                        position=InsertPosition.AT_SEQUENCE,
+                        target_sequence=mapping.new_sequence
+                    ),
+                    cascade_renumber=False,
+                    element_path='steps',
+                    id_field='step_id',
+                    parent_path='phases',
+                    parent_id=mapping.new_parent,
+                    parent_id_field='phase_id'
+                )
+                result = inserter.insert_element(flow, operation)
+                if not result.success:
+                    print(f"⚠️  Insert failed: {result.errors}")
         
-        # Apply renumbers
+        # Apply renumbers (keep inline - this is lightweight and specific to plan structure)
         for mapping in plan.get_renumbers():
             if mapping.element_type == 'phase':
                 for phase in flow.get('phases', []):

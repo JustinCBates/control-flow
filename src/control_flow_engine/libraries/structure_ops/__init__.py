@@ -11,7 +11,7 @@ No domain coupling - works with any hierarchical structure.
 from .mover import StructureMover, MoveOperation, MoveResult
 from .swapper import StructureSwapper, SwapOperation, SwapResult
 from .reorderer import StructureReorderer, ReorderOperation, ReorderResult
-from .inserter import StructureInserter, InsertOperation, InsertResult, InsertPosition
+from .inserter import StructureInserter, InsertOperation, InsertResult, InsertPosition, InsertionPoint
 from .deleter import StructureDeleter, DeleteOperation, DeleteResult
 
 __all__ = [
@@ -28,6 +28,7 @@ __all__ = [
     'InsertOperation',
     'InsertResult',
     'InsertPosition',
+    'InsertionPoint',
     'StructureDeleter',
     'DeleteOperation',
     'DeleteResult',
