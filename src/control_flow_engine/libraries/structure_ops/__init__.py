@@ -10,7 +10,7 @@ No domain coupling - works with any hierarchical structure.
 
 from .mover import StructureMover, MoveOperation, MoveResult
 from .swapper import StructureSwapper, SwapOperation, SwapResult
-# from .reorderer import StructureReorderer, ReorderOperation, ReorderResult  # TODO: Implement
+from .reorderer import StructureReorderer, ReorderOperation, ReorderResult
 
 __all__ = [
     'StructureMover',
@@ -19,7 +19,7 @@ __all__ = [
     'StructureSwapper',
     'SwapOperation',
     'SwapResult',
-    # 'StructureReorderer',
-    # 'ReorderOperation',
-    # 'ReorderResult',
+    'StructureReorderer',
+    'ReorderOperation',
+    'ReorderResult',
 ]
