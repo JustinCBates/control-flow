@@ -120,6 +120,8 @@ class ControlFlowEditor:
                     self._renumber_menu()
                 elif action == 'insert':
                     self._insert_menu()
+                elif action == 'move':
+                    self._move_menu()
                 elif action == 'delete':
                     self._delete_menu()
                 elif action == 'history':
@@ -177,7 +179,8 @@ class ControlFlowEditor:
             {'name': '📋 Browse Flow Structure', 'value': 'browse'},
             {'name': '🔢 Renumber Sequences', 'value': 'renumber'},
             {'name': '➕ Insert Phase/Step', 'value': 'insert'},
-            {'name': '🗑️  Delete Phase/Step', 'value': 'delete'},
+            {'name': '� Move/Reorder/Swap', 'value': 'move'},
+            {'name': '�🗑️  Delete Phase/Step', 'value': 'delete'},
             {'name': '📜 View History', 'value': 'history'},
             {'name': '↩️  Rollback Changes', 'value': 'rollback'},
             questionary.Separator(),

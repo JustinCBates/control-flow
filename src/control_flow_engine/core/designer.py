@@ -1030,6 +1030,495 @@ class ControlFlowDesigner:
                 'error': str(e)
             }
     
+    def move_phase(
+        self,
+        from_sequence: int,
+        to_sequence: int,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Move a phase to a different sequence position.
+        
+        Args:
+            from_sequence: Current sequence number of phase to move
+            to_sequence: Target sequence number
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.move_phase(from_sequence=3, to_sequence=1)
+        """
+        from ..libraries.structure_ops import StructureMover, MoveOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Create move operation
+            mover = StructureMover()
+            operation = MoveOperation(
+                from_sequence=from_sequence,
+                to_sequence=to_sequence,
+                element_path="phases",
+                id_field="phase_id"
+            )
+            
+            # Execute move
+            result = mover.move_element(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Move failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Phase moved from sequence {from_sequence} to {to_sequence}",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def move_step(
+        self,
+        phase_id: str,
+        from_sequence: int,
+        to_sequence: int,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Move a step to a different sequence position within its phase.
+        
+        Args:
+            phase_id: ID of the phase containing the step
+            from_sequence: Current sequence number of step to move
+            to_sequence: Target sequence number
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.move_step(phase_id='deployment', from_sequence=3, to_sequence=1)
+        """
+        from ..libraries.structure_ops import StructureMover, MoveOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Create move operation
+            mover = StructureMover()
+            operation = MoveOperation(
+                from_sequence=from_sequence,
+                to_sequence=to_sequence,
+                element_path="steps",
+                id_field="step_id",
+                parent_path="phases",
+                parent_id=phase_id,
+                parent_id_field="phase_id"
+            )
+            
+            # Execute move
+            result = mover.move_element(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Move failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Step moved from sequence {from_sequence} to {to_sequence}",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def swap_phases(
+        self,
+        sequence_a: int,
+        sequence_b: int,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Swap two phases.
+        
+        Args:
+            sequence_a: Sequence number of first phase
+            sequence_b: Sequence number of second phase
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.swap_phases(sequence_a=1, sequence_b=3)
+        """
+        from ..libraries.structure_ops import StructureSwapper, SwapOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Find phase IDs by sequence
+            phases = flow.get('phases', [])
+            phase_a_id = None
+            phase_b_id = None
+            
+            for phase in phases:
+                if phase.get('sequence') == sequence_a:
+                    phase_a_id = phase.get('phase_id')
+                if phase.get('sequence') == sequence_b:
+                    phase_b_id = phase.get('phase_id')
+            
+            if not phase_a_id or not phase_b_id:
+                return {
+                    'success': False,
+                    'message': 'One or both phases not found'
+                }
+            
+            # Create swap operation
+            swapper = StructureSwapper()
+            operation = SwapOperation(
+                element_a_id=phase_a_id,
+                element_b_id=phase_b_id,
+                element_path="phases",
+                id_field="phase_id"
+            )
+            
+            # Execute swap
+            result = swapper.swap_elements(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Swap failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Phases at sequences {sequence_a} and {sequence_b} swapped",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def swap_steps(
+        self,
+        phase_id: str,
+        sequence_a: int,
+        sequence_b: int,
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Swap two steps within a phase.
+        
+        Args:
+            phase_id: ID of the phase containing the steps
+            sequence_a: Sequence number of first step
+            sequence_b: Sequence number of second step
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.swap_steps(phase_id='deployment', sequence_a=1, sequence_b=3)
+        """
+        from ..libraries.structure_ops import StructureSwapper, SwapOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Find the phase
+            phases = flow.get('phases', [])
+            target_phase = None
+            for phase in phases:
+                if phase.get('phase_id') == phase_id:
+                    target_phase = phase
+                    break
+            
+            if not target_phase:
+                return {
+                    'success': False,
+                    'message': f"Phase '{phase_id}' not found"
+                }
+            
+            # Find step IDs by sequence
+            steps = target_phase.get('steps', [])
+            step_a_id = None
+            step_b_id = None
+            
+            for step in steps:
+                if step.get('sequence') == sequence_a:
+                    step_a_id = step.get('step_id')
+                if step.get('sequence') == sequence_b:
+                    step_b_id = step.get('step_id')
+            
+            if not step_a_id or not step_b_id:
+                return {
+                    'success': False,
+                    'message': 'One or both steps not found'
+                }
+            
+            # Create swap operation
+            swapper = StructureSwapper()
+            operation = SwapOperation(
+                element_a_id=step_a_id,
+                element_b_id=step_b_id,
+                element_path="steps",
+                id_field="step_id",
+                parent_path="phases",
+                parent_id=phase_id,
+                parent_id_field="phase_id"
+            )
+            
+            # Execute swap
+            result = swapper.swap_elements(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Swap failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Steps at sequences {sequence_a} and {sequence_b} swapped",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def reorder_phases(
+        self,
+        new_order: Dict[int, int],
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Batch reorder phases.
+        
+        Args:
+            new_order: Mapping of old sequence to new sequence
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.reorder_phases(new_order={1: 3, 2: 1, 3: 2})
+        """
+        from ..libraries.structure_ops import StructureReorderer, ReorderOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Create reorder operation
+            reorderer = StructureReorderer()
+            operation = ReorderOperation(
+                new_order=new_order,
+                element_path="phases",
+                id_field="phase_id"
+            )
+            
+            # Execute reorder
+            result = reorderer.reorder_elements(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Reorder failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Phases reordered successfully",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
+    def reorder_steps(
+        self,
+        phase_id: str,
+        new_order: Dict[int, int],
+        preview_only: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Batch reorder steps within a phase.
+        
+        Args:
+            phase_id: ID of the phase containing the steps
+            new_order: Mapping of old sequence to new sequence
+            preview_only: If True, only preview without applying
+            
+        Returns:
+            Dict with operation results
+            
+        Example:
+            result = designer.reorder_steps(phase_id='deployment', new_order={1: 3, 2: 1, 3: 2})
+        """
+        from ..libraries.structure_ops import StructureReorderer, ReorderOperation
+        
+        try:
+            # Get current spec
+            spec = self.manager.get_specification()
+            flow = spec.get('flows', {}).get(self.manager.flow_name, {})
+            
+            # Create reorder operation
+            reorderer = StructureReorderer()
+            operation = ReorderOperation(
+                new_order=new_order,
+                element_path="steps",
+                id_field="step_id",
+                parent_path="phases",
+                parent_id=phase_id,
+                parent_id_field="phase_id"
+            )
+            
+            # Execute reorder
+            result = reorderer.reorder_elements(flow, operation, dry_run=preview_only)
+            
+            if not result.success:
+                return {
+                    'success': False,
+                    'message': f"Reorder failed: {', '.join(result.errors)}",
+                    'errors': result.errors
+                }
+            
+            if preview_only:
+                return {
+                    'success': True,
+                    'message': 'Preview generated',
+                    'mappings': result.mappings,
+                    'warnings': result.warnings
+                }
+            
+            # Update spec and save
+            spec['flows'][self.manager.flow_name] = result.modified_structure
+            self.manager.spec = spec
+            self.manager.save_specification()
+            
+            return {
+                'success': True,
+                'message': f"Steps reordered successfully",
+                'mappings': result.mappings
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'error': str(e)
+            }
+    
     def get_transformation_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get transformation history.
