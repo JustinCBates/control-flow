@@ -9,16 +9,16 @@ No domain coupling - works with any hierarchical structure.
 """
 
 from .mover import StructureMover, MoveOperation, MoveResult
-# from .swapper import StructureSwapper, SwapOperation, SwapResult  # TODO: Implement
+from .swapper import StructureSwapper, SwapOperation, SwapResult
 # from .reorderer import StructureReorderer, ReorderOperation, ReorderResult  # TODO: Implement
 
 __all__ = [
     'StructureMover',
     'MoveOperation',
     'MoveResult',
-    # 'StructureSwapper',
-    # 'SwapOperation',
-    # 'SwapResult',
+    'StructureSwapper',
+    'SwapOperation',
+    'SwapResult',
     # 'StructureReorderer',
     # 'ReorderOperation',
     # 'ReorderResult',
