@@ -13,6 +13,7 @@ from .swapper import StructureSwapper, SwapOperation, SwapResult
 from .reorderer import StructureReorderer, ReorderOperation, ReorderResult
 from .inserter import StructureInserter, InsertOperation, InsertResult, InsertPosition, InsertionPoint
 from .deleter import StructureDeleter, DeleteOperation, DeleteResult
+from .renumberer import StructureRenumberer, RenumberOperation, RenumberResult, RenumberStrategy
 
 __all__ = [
     'StructureMover',
@@ -32,4 +33,8 @@ __all__ = [
     'StructureDeleter',
     'DeleteOperation',
     'DeleteResult',
+    'StructureRenumberer',
+    'RenumberOperation',
+    'RenumberResult',
+    'RenumberStrategy',
 ]
