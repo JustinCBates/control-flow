@@ -8,33 +8,45 @@ on any hierarchical data (dictionaries, lists, YAML, JSON).
 No domain coupling - works with any hierarchical structure.
 """
 
-from .mover import StructureMover, MoveOperation, MoveResult
+from .mover import StructureMover, MoveOperation, MoveResult, MoveDirection
 from .swapper import StructureSwapper, SwapOperation, SwapResult
 from .reorderer import StructureReorderer, ReorderOperation, ReorderResult
-from .inserter import StructureInserter, InsertOperation, InsertResult, InsertPosition, InsertionPoint
+from .inserter import (
+    StructureInserter,
+    InsertOperation,
+    InsertResult,
+    InsertPosition,
+    InsertionPoint,
+)
 from .deleter import StructureDeleter, DeleteOperation, DeleteResult
-from .renumberer import StructureRenumberer, RenumberOperation, RenumberResult, RenumberStrategy
+from .renumberer import (
+    StructureRenumberer,
+    RenumberOperation,
+    RenumberResult,
+    RenumberStrategy,
+)
 
 __all__ = [
-    'StructureMover',
-    'MoveOperation',
-    'MoveResult',
-    'StructureSwapper',
-    'SwapOperation',
-    'SwapResult',
-    'StructureReorderer',
-    'ReorderOperation',
-    'ReorderResult',
-    'StructureInserter',
-    'InsertOperation',
-    'InsertResult',
-    'InsertPosition',
-    'InsertionPoint',
-    'StructureDeleter',
-    'DeleteOperation',
-    'DeleteResult',
-    'StructureRenumberer',
-    'RenumberOperation',
-    'RenumberResult',
-    'RenumberStrategy',
+    "StructureMover",
+    "MoveOperation",
+    "MoveResult",
+    "MoveDirection",
+    "StructureSwapper",
+    "SwapOperation",
+    "SwapResult",
+    "StructureReorderer",
+    "ReorderOperation",
+    "ReorderResult",
+    "StructureInserter",
+    "InsertOperation",
+    "InsertResult",
+    "InsertPosition",
+    "InsertionPoint",
+    "StructureDeleter",
+    "DeleteOperation",
+    "DeleteResult",
+    "StructureRenumberer",
+    "RenumberOperation",
+    "RenumberResult",
+    "RenumberStrategy",
 ]

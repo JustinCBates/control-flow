@@ -23,13 +23,13 @@ This solves the critical bug: "Flow-Editor: Arrow Keys Don't Work in VS Code Ter
 Example Usage:
     ```python
     from control_flow_engine.libraries.interactive_ui import UniversalMenu
-    
+
     # Create menu (auto-detects terminal capabilities)
     menu = UniversalMenu()
-    
+
     # Print capability info (optional)
     menu.print_info()
-    
+
     # Select from choices
     result = menu.select(
         "Choose an option:",
@@ -39,16 +39,16 @@ Example Usage:
             {'name': 'Option C', 'value': 'c'}
         ]
     )
-    
+
     # Confirm action
     confirmed = menu.confirm("Are you sure?", default=False)
-    
+
     # Text input with validation
     name = menu.text(
         "Enter name:",
         validate=lambda x: len(x) > 0 or "Name required"
     )
-    
+
     # The menu automatically uses:
     # - Questionary (arrow keys) in full terminals
     # - Numbered menu (text input) in VS Code and limited terminals
@@ -60,7 +60,7 @@ Terminal Detection:
     - Limited terminals (TERM=dumb, TERM=linux, etc.)
     - TTY availability
     - Questionary library availability
-    
+
     And automatically chooses the best UI mode:
     - 'questionary': Full arrow-key navigation (standard terminals)
     - 'numbered': Numbered text menus (VS Code, limited terminals)
@@ -70,7 +70,7 @@ Force Specific Mode:
     ```python
     # Force numbered menu (testing, or if you prefer it)
     menu = UniversalMenu(force_mode='numbered')
-    
+
     # Force questionary (if you know terminal supports it)
     menu = UniversalMenu(force_mode='questionary')
     ```
@@ -81,25 +81,17 @@ Migration from Direct Questionary:
     import questionary
     result = questionary.select("Choose:", choices=[...]).ask()
     ```
-    
+
     New code:
     ```python
     from control_flow_engine.libraries.interactive_ui import UniversalMenu
     menu = UniversalMenu()
     result = menu.select("Choose:", choices=[...])
     ```
-    
+
     The API is nearly identical, but now it works everywhere!
 """
 
-from .universal_menu import (
-    UniversalMenu,
-    TerminalCapabilities,
-    MenuChoice
-)
+from .universal_menu import UniversalMenu, TerminalCapabilities, MenuChoice
 
-__all__ = [
-    'UniversalMenu',
-    'TerminalCapabilities',
-    'MenuChoice'
-]
+__all__ = ["UniversalMenu", "TerminalCapabilities", "MenuChoice"]

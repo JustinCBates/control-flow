@@ -206,7 +206,7 @@ PHASE_ID = 'collection'
 ⚠️  Warning: phase_4_preprocessing already exists
 ```
 
-**Solution:** 
+**Solution:**
 - Check for naming conflicts
 - Use different `--id`
 - Manually remove conflicting directory
@@ -334,7 +334,7 @@ python3 phases/phase_3_collection/orchestrator_collection.py --show-paths
    PROJECT_ROOT: /opt/openproject/external/config-manager
    PHASE_DIR: phases/phase_3_collection
    OUTPUT_DIR: phases/phase_3_collection/outputs
-   
+
 ✅ PathResolver validation: PASSED
 ```
 

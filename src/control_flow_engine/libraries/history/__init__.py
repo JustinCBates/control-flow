@@ -19,10 +19,10 @@ Example Usage:
     ```python
     from pathlib import Path
     from control_flow_engine.libraries.history import TransformationHistory, TransformationMapping
-    
+
     # Initialize history
     history = TransformationHistory(Path('.transformation_history.json'))
-    
+
     # Record a transformation
     mapping = TransformationMapping(
         element_type='phase',
@@ -31,7 +31,7 @@ Example Usage:
         new_sequence=2,
         operation='move'
     )
-    
+
     history.record_transformation(
         transformation_type='move',
         context_name='main_flow',
@@ -39,10 +39,10 @@ Example Usage:
         mappings=[mapping],
         spec_file=Path('spec.yml')
     )
-    
+
     # View history
     print(history.summary())
-    
+
     # Check if can rollback
     can_rollback, reason = history.can_rollback(steps=1)
     ```
@@ -51,11 +51,7 @@ Example Usage:
 from .transformation_history import (
     TransformationHistory,
     TransformationMapping,
-    ValidationResult
+    ValidationResult,
 )
 
-__all__ = [
-    'TransformationHistory',
-    'TransformationMapping',
-    'ValidationResult'
-]
+__all__ = ["TransformationHistory", "TransformationMapping", "ValidationResult"]

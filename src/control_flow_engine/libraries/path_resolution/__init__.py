@@ -19,22 +19,22 @@ Features:
 Example Usage:
     ```python
     from control_flow_engine.libraries.path_resolution import PathResolver
-    
+
     # Auto-detect from current file
     resolver = PathResolver.from_execution_context(__file__)
-    
+
     # Resolve artifact by ID
     config_path = resolver.resolve_artifact_path('user_configuration')
-    
+
     # Resolve phase output directory
     output_dir = resolver.resolve_phase_output_dir('collection', create=True)
-    
+
     # Get project root
     root = resolver.get_project_root()
-    
+
     # List all artifacts
     artifacts = resolver.list_artifacts()
-    
+
     # Validate artifact accessibility
     can_read = resolver.validate_artifact_accessible('config', mode='read')
     ```
@@ -51,4 +51,4 @@ Key Methods:
 
 from .path_resolver import PathResolver, PathResolutionError
 
-__all__ = ['PathResolver', 'PathResolutionError']
+__all__ = ["PathResolver", "PathResolutionError"]
