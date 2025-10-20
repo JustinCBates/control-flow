@@ -29,6 +29,21 @@ repos:
         args: ["--max-line-length=88", "--extend-ignore=E203,E402,E501,F401,F541,F821,F841,W293"]
         files: ^src/.*\.py$
 
+      # Enforce F401 for CLI modules now (stricter)
+      - id: flake8
+        name: flake8 (cli - strict F401)
+        additional_dependencies: []
+        # Keep other ignores but DO NOT ignore F401 here
+        args: ["--max-line-length=88", "--extend-ignore=E203,E402,E501,F541,F821,F841,W293"]
+        files: ^src/control_flow_engine/cli/.*\.py$
+
+      # Enforce F401 for top-level scripts/bin
+      - id: flake8
+        name: flake8 (scripts/bin - strict F401)
+        additional_dependencies: []
+        args: ["--max-line-length=88", "--extend-ignore=E203,E402,E501,F541,F821,F841,W293"]
+        files: ^(scripts|bin)/.*\.py$
+
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.0
     hooks:

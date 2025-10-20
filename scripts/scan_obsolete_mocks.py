@@ -11,21 +11,15 @@ Usage:
     python scan_obsolete_mocks.py [--auto-remove] [--phase PHASE_ID]
 """
 
-import os
+import json
 import sys
 import yaml
-import json
 from pathlib import Path
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Tuple
 import argparse
 from datetime import datetime
 
-# Add control-flow to path
-SCRIPT_DIR = Path(__file__).parent
-CONTROL_FLOW_ROOT = SCRIPT_DIR.parent
-sys.path.insert(0, str(CONTROL_FLOW_ROOT / "src"))
-
-from control_flow_engine.runtime import PathResolver
+# Note: Avoid runtime sys.path hacks; rely on installed package or workspace import
 
 
 class MockScanner:

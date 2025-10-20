@@ -28,7 +28,7 @@ import yaml
 from pathlib import Path
 import re
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class PhaseRenumberer:
