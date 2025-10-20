@@ -2,11 +2,7 @@
 """Command-line interface for Control Flow Engine."""
 
 import click
-import sys
 from pathlib import Path
-
-# Add the src directory to Python path for local development
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 @click.group()

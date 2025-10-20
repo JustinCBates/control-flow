@@ -25,9 +25,6 @@ except ImportError:
     print("Error: questionary not installed. Run: pip install questionary")
     sys.exit(1)
 
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from control_flow_engine.core.designer import ControlFlowDesigner
 from control_flow_engine.core.engine import ControlFlowManager
 
