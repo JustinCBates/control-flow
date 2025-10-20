@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StepConfig:
     """Configuration for a single step within a phase."""
+
     step_id: str
     name: str
     description: str
@@ -26,20 +27,22 @@ class StepConfig:
 @dataclass
 class ArtifactConfig:
     """Configuration for an artifact."""
+
     artifact_id: str
     output_file: str  # Relative path from phase directory
-    format: str       # yaml, json, cfg, etc.
+    format: str  # yaml, json, cfg, etc.
 
 
 @dataclass
 class PhaseConfig:
     """Configuration for a single phase."""
+
     phase_id: str
     name: str
     description: str
     status: str
     entry_file: str  # e.g., "discovery.py"
-    directory: str   # e.g., "phases/phase_1_discovery"
+    directory: str  # e.g., "phases/phase_1_discovery"
     steps: List[StepConfig] = field(default_factory=list)
     artifacts_produced: List[ArtifactConfig] = field(default_factory=list)
     artifacts_consumed: List[str] = field(default_factory=list)
@@ -47,366 +50,407 @@ class PhaseConfig:
 
 class ScaffoldGenerator:
     """Generate project scaffolding from control flow specifications."""
-    
+
     def __init__(self, spec_file: Path, output_dir: Path):
         self.spec_file = Path(spec_file)
         self.output_dir = Path(output_dir)
         self.spec_data = None
         self.component_name = None
-        
+
     def generate_scaffolding(self, dry_run: bool = False) -> Dict[str, List[Path]]:
         """
         Generate complete project scaffolding.
-        
+
         Args:
             dry_run: If True, only show what would be generated
-            
+
         Returns:
             Dict mapping category to list of generated paths
         """
         logger.info(f"Generating scaffolding from {self.spec_file}")
-        
+
         # 1. Parse specification
         self.spec_data = self._parse_specification()
-        self.component_name = self.spec_data.get('component', {}).get('name', 'component')
-        
+        self.component_name = self.spec_data.get("component", {}).get(
+            "name", "component"
+        )
+
         # 2. Extract phase configurations
         phases = self._extract_phases()
-        
+
         if dry_run:
             return self._preview_scaffolding(phases)
-        
+
         # 3. Generate structure
         result = {
-            'directories': [],
-            'phase_files': [],
-            'step_files': [],
-            'output_files': [],
-            'test_files': [],
-            'entry_point': [],
-            'metadata': []
+            "directories": [],
+            "phase_files": [],
+            "step_files": [],
+            "output_files": [],
+            "test_files": [],
+            "entry_point": [],
+            "metadata": [],
         }
-        
+
         # 4. Create each phase
         for phase in phases:
             phase_result = self._generate_phase(phase)
-            result['directories'].extend(phase_result['directories'])
-            result['phase_files'].extend(phase_result['phase_files'])
-            result['step_files'].extend(phase_result['step_files'])
-            result['output_files'].extend(phase_result['output_files'])
-            result['test_files'].extend(phase_result.get('test_files', []))
-        
+            result["directories"].extend(phase_result["directories"])
+            result["phase_files"].extend(phase_result["phase_files"])
+            result["step_files"].extend(phase_result["step_files"])
+            result["output_files"].extend(phase_result["output_files"])
+            result["test_files"].extend(phase_result.get("test_files", []))
+
         # 5. Generate root entry point
         entry_point = self._generate_entry_point(phases)
-        result['entry_point'].append(entry_point)
-        
+        result["entry_point"].append(entry_point)
+
         # 6. Generate metadata files
         metadata = self._generate_metadata()
-        result['metadata'].extend(metadata)
-        
+        result["metadata"].extend(metadata)
+
         return result
-    
+
     def _parse_specification(self) -> Dict[str, Any]:
         """Parse YAML control flow specification."""
         if not self.spec_file.exists():
             raise FileNotFoundError(f"Specification file not found: {self.spec_file}")
-        
-        with open(self.spec_file, 'r') as f:
+
+        with open(self.spec_file, "r") as f:
             return yaml.safe_load(f)
-    
+
     def _extract_phases(self) -> List[PhaseConfig]:
         """Extract phase configurations from specification."""
         phases = []
-        
-        flows = self.spec_data.get('flows', {})
+
+        flows = self.spec_data.get("flows", {})
         for flow_name, flow_data in flows.items():
-            phase_list = flow_data.get('phases', [])
-            
+            phase_list = flow_data.get("phases", [])
+
             for idx, phase_data in enumerate(phase_list, start=1):
-                phase_id = phase_data.get('phase_id')
-                
+                phase_id = phase_data.get("phase_id")
+
                 # Determine entry file name (phase orchestrator)
                 # Default: orchestrator_{phase_id}.py
-                entry_file = phase_data.get('entry_file', f"orchestrator_{phase_id}.py")
-                
+                entry_file = phase_data.get("entry_file", f"orchestrator_{phase_id}.py")
+
                 # Determine phase directory
-                phase_dir = phase_data.get('phase_directory')
+                phase_dir = phase_data.get("phase_directory")
                 if not phase_dir:
                     phase_dir = f"phases/phase_{idx}_{phase_id}"
-                
+
                 # Extract steps - support both direct steps and sub_flows
                 steps = []
-                
+
                 # First, check for direct steps in the phase definition
-                for step_data in phase_data.get('steps', []):
-                    step_id = step_data.get('step_id')
-                    step_entry = step_data.get('entry_file', f"{step_id}.py")
-                    
-                    steps.append(StepConfig(
-                        step_id=step_id,
-                        name=step_data.get('name', step_id),
-                        description=step_data.get('description', ''),
-                        status=step_data.get('status', 'PLANNED'),
-                        entry_file=step_entry
-                    ))
-                
+                for step_data in phase_data.get("steps", []):
+                    step_id = step_data.get("step_id")
+                    step_entry = step_data.get("entry_file", f"{step_id}.py")
+
+                    steps.append(
+                        StepConfig(
+                            step_id=step_id,
+                            name=step_data.get("name", step_id),
+                            description=step_data.get("description", ""),
+                            status=step_data.get("status", "PLANNED"),
+                            entry_file=step_entry,
+                        )
+                    )
+
                 # Second, check for sub_flows and extract their steps
-                sub_flows = phase_data.get('sub_flows', [])
+                sub_flows = phase_data.get("sub_flows", [])
                 for sub_flow_id in sub_flows:
                     # Look up the sub_flow in the flows section
                     sub_flow_data = flows.get(sub_flow_id, {})
-                    for step_data in sub_flow_data.get('steps', []):
-                        step_id = step_data.get('step_id')
-                        step_entry = step_data.get('entry_file', f"{step_id}.py")
-                        
-                        steps.append(StepConfig(
-                            step_id=step_id,
-                            name=step_data.get('name', step_id),
-                            description=step_data.get('description', ''),
-                            status=step_data.get('status', 'PLANNED'),
-                            entry_file=step_entry
-                        ))
-                
+                    for step_data in sub_flow_data.get("steps", []):
+                        step_id = step_data.get("step_id")
+                        step_entry = step_data.get("entry_file", f"{step_id}.py")
+
+                        steps.append(
+                            StepConfig(
+                                step_id=step_id,
+                                name=step_data.get("name", step_id),
+                                description=step_data.get("description", ""),
+                                status=step_data.get("status", "PLANNED"),
+                                entry_file=step_entry,
+                            )
+                        )
+
                 # Extract artifacts - handle both dict and string formats
                 # Only create output files for artifacts that should be in the phase directory
                 artifacts_produced = []
-                for artifact in phase_data.get('artifacts_produced', []):
+                for artifact in phase_data.get("artifacts_produced", []):
                     if isinstance(artifact, dict):
-                        artifacts_produced.append(ArtifactConfig(
-                            artifact_id=artifact.get('artifact_id'),
-                            output_file=artifact.get('output_file'),
-                            format=artifact.get('format', 'yaml')
-                        ))
+                        artifacts_produced.append(
+                            ArtifactConfig(
+                                artifact_id=artifact.get("artifact_id"),
+                                output_file=artifact.get("output_file"),
+                                format=artifact.get("format", "yaml"),
+                            )
+                        )
                     else:
                         # Simple string format (backward compatible)
                         # Look up artifact details from artifacts section
-                        artifact_details = self.spec_data.get('artifacts', {}).get(artifact, {})
-                        location = artifact_details.get('location', f"outputs/{artifact}.yml")
-                        state = artifact_details.get('state', 'FILE')
-                        
+                        artifact_details = self.spec_data.get("artifacts", {}).get(
+                            artifact, {}
+                        )
+                        location = artifact_details.get(
+                            "location", f"outputs/{artifact}.yml"
+                        )
+                        state = artifact_details.get("state", "FILE")
+
                         # Only create files for artifacts that are:
                         # 1. FILE state (not IN_MEMORY)
                         # 2. Located in phase directory (start with 'output' or relative path)
                         # Skip external paths (src/...) and in-memory artifacts
-                        if state == 'IN_MEMORY':
+                        if state == "IN_MEMORY":
                             continue
-                        if location.startswith('src/') or location.startswith('/'):
+                        if location.startswith("src/") or location.startswith("/"):
                             continue
-                        if 'Python dict' in location or 'Hardcoded' in location:
+                        if "Python dict" in location or "Hardcoded" in location:
                             continue
-                            
+
                         # Normalize location to be relative to phase directory
-                        if location.startswith('output/'):
+                        if location.startswith("output/"):
                             # Convert output/ to outputs/
-                            location = location.replace('output/', 'outputs/', 1)
-                        elif not location.startswith('outputs/'):
+                            location = location.replace("output/", "outputs/", 1)
+                        elif not location.startswith("outputs/"):
                             # Default to outputs/ directory
                             location = f"outputs/{artifact}.yml"
-                        
-                        artifacts_produced.append(ArtifactConfig(
-                            artifact_id=artifact,
-                            output_file=location,
-                            format=artifact_details.get('format', 'yaml')
-                        ))
-                
-                phases.append(PhaseConfig(
-                    phase_id=phase_id,
-                    name=phase_data.get('name', phase_id),
-                    description=phase_data.get('description', ''),
-                    status=phase_data.get('status', 'PLANNED'),
-                    entry_file=entry_file,
-                    directory=phase_dir,
-                    steps=steps,
-                    artifacts_produced=artifacts_produced,
-                    artifacts_consumed=phase_data.get('artifacts_consumed', [])
-                ))
-        
+
+                        artifacts_produced.append(
+                            ArtifactConfig(
+                                artifact_id=artifact,
+                                output_file=location,
+                                format=artifact_details.get("format", "yaml"),
+                            )
+                        )
+
+                phases.append(
+                    PhaseConfig(
+                        phase_id=phase_id,
+                        name=phase_data.get("name", phase_id),
+                        description=phase_data.get("description", ""),
+                        status=phase_data.get("status", "PLANNED"),
+                        entry_file=entry_file,
+                        directory=phase_dir,
+                        steps=steps,
+                        artifacts_produced=artifacts_produced,
+                        artifacts_consumed=phase_data.get("artifacts_consumed", []),
+                    )
+                )
+
         return phases
-    
+
     def _preview_scaffolding(self, phases: List[PhaseConfig]) -> Dict[str, List[str]]:
         """Generate a preview of what would be created."""
         preview = {
-            'directories': [],
-            'phase_files': [],
-            'step_files': [],
-            'output_files': [],
-            'entry_point': ['run.py'],
-            'metadata': ['.gitignore', 'README_GENERATED.md']
+            "directories": [],
+            "phase_files": [],
+            "step_files": [],
+            "output_files": [],
+            "entry_point": ["run.py"],
+            "metadata": [".gitignore", "README_GENERATED.md"],
         }
-        
+
         for phase in phases:
             phase_dir = phase.directory
-            
+
             # Directories
-            preview['directories'].append(phase_dir)
-            preview['directories'].append(f"{phase_dir}/outputs")
-            
+            preview["directories"].append(phase_dir)
+            preview["directories"].append(f"{phase_dir}/outputs")
+
             # Phase entry file
-            preview['phase_files'].append(f"{phase_dir}/{phase.entry_file}")
-            
+            preview["phase_files"].append(f"{phase_dir}/{phase.entry_file}")
+
             # Step directories and files (numbered)
             for idx, step in enumerate(phase.steps, start=1):
                 step_dir = f"{phase_dir}/step_{idx}_{step.step_id}"
-                preview['directories'].append(step_dir)
-                preview['step_files'].append(f"{step_dir}/{step.entry_file}")
-            
+                preview["directories"].append(step_dir)
+                preview["step_files"].append(f"{step_dir}/{step.entry_file}")
+
             # Output files
             for artifact in phase.artifacts_produced:
-                preview['output_files'].append(f"{phase_dir}/{artifact.output_file}")
-        
+                preview["output_files"].append(f"{phase_dir}/{artifact.output_file}")
+
         return preview
-    
+
     def _generate_phase(self, phase: PhaseConfig) -> Dict[str, List[Path]]:
         """Generate all files for a single phase."""
         result = {
-            'directories': [],
-            'phase_files': [],
-            'step_files': [],
-            'output_files': [],
-            'test_files': []
+            "directories": [],
+            "phase_files": [],
+            "step_files": [],
+            "output_files": [],
+            "test_files": [],
         }
-        
+
         phase_dir = self.output_dir / phase.directory
-        
+
         # Create base directories
         directories_to_create = [
             phase_dir,
-            phase_dir / 'outputs',
-            phase_dir / 'tests',
-            phase_dir / 'tests' / 'unit',
-            phase_dir / 'tests' / 'integration'
+            phase_dir / "outputs",
+            phase_dir / "tests",
+            phase_dir / "tests" / "unit",
+            phase_dir / "tests" / "integration",
         ]
-        
+
         for directory in directories_to_create:
             directory.mkdir(parents=True, exist_ok=True)
-            result['directories'].append(directory)
+            result["directories"].append(directory)
             logger.info(f"Created directory: {directory}")
-        
+
         # Generate phase entry file
         phase_file = phase_dir / phase.entry_file
         self._write_phase_file(phase_file, phase)
-        result['phase_files'].append(phase_file)
-        
+        result["phase_files"].append(phase_file)
+
         # Generate step directories and files (numbered like phases)
         for idx, step in enumerate(phase.steps, start=1):
             step_dir_name = f"step_{idx}_{step.step_id}"
             step_dir = phase_dir / step_dir_name
             step_dir.mkdir(parents=True, exist_ok=True)
-            result['directories'].append(step_dir)
+            result["directories"].append(step_dir)
             logger.info(f"Created step directory: {step_dir}")
-            
+
             step_file = step_dir / step.entry_file
             self._write_step_file(step_file, step, phase)
-            result['step_files'].append(step_file)
-            
+            result["step_files"].append(step_file)
+
             # Generate unit test for this step
-            test_file = phase_dir / 'tests' / 'unit' / f"test_{step.entry_file}"
+            test_file = phase_dir / "tests" / "unit" / f"test_{step.entry_file}"
             self._write_step_unit_test(test_file, step, phase, step_dir_name)
-            result['test_files'].append(test_file)
-        
+            result["test_files"].append(test_file)
+
         # Generate integration test for phase orchestrator
-        integration_test_file = phase_dir / 'tests' / 'integration' / f"test_{phase.entry_file}"
+        integration_test_file = (
+            phase_dir / "tests" / "integration" / f"test_{phase.entry_file}"
+        )
         self._write_phase_integration_test(integration_test_file, phase)
-        result['test_files'].append(integration_test_file)
-        
+        result["test_files"].append(integration_test_file)
+
         # Generate output files (empty placeholders)
         for artifact in phase.artifacts_produced:
             output_file = phase_dir / artifact.output_file
             self._write_output_file(output_file, artifact)
-            result['output_files'].append(output_file)
-        
+            result["output_files"].append(output_file)
+
         return result
-    
+
     def _write_phase_file(self, file_path: Path, phase: PhaseConfig):
         """Write phase entry point file."""
         content = self._generate_phase_content(phase)
         file_path.write_text(content)
         logger.info(f"Generated phase file: {file_path}")
-    
+
     def _write_step_file(self, file_path: Path, step: StepConfig, phase: PhaseConfig):
         """Write step implementation file."""
         content = self._generate_step_content(step, phase)
         file_path.write_text(content)
         logger.info(f"Generated step file: {file_path}")
-    
+
     def _write_output_file(self, file_path: Path, artifact: ArtifactConfig):
         """Write empty output file placeholder."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Create appropriate empty structure based on format
-        format_lower = artifact.format.lower() if artifact.format else ''
-        if format_lower in ['yaml', 'yml']:
+        format_lower = artifact.format.lower() if artifact.format else ""
+        if format_lower in ["yaml", "yml"]:
             content = f"# {artifact.artifact_id}\n# Generated by Control Flow Engine\n# This file will be populated by the phase\n"
-        elif format_lower == 'json':
+        elif format_lower == "json":
             content = "{}\n"
-        elif format_lower == 'cfg':
+        elif format_lower == "cfg":
             content = f"# {artifact.artifact_id}\n# Generated by Control Flow Engine\n"
         else:
             content = ""
-        
+
         file_path.write_text(content)
         logger.info(f"Generated output file: {file_path}")
-    
+
     def _generate_phase_content(self, phase: PhaseConfig) -> str:
         """Generate phase file content with PathResolver integration."""
         class_name = self._class_name_from_id(phase.phase_id)
-        
+
         # Generate imports for steps with conditional handling
         step_imports = []
         step_imports_standalone = []
-        
+
         if phase.steps:
             # For module context (relative imports)
-            step_imports.append("# Conditional imports to handle both module context and standalone execution")
+            step_imports.append(
+                "# Conditional imports to handle both module context and standalone execution"
+            )
             step_imports.append("if __name__ == '__main__':")
-            step_imports.append("    # When running as standalone script, add parent to path and use absolute imports")
+            step_imports.append(
+                "    # When running as standalone script, add parent to path and use absolute imports"
+            )
             step_imports.append("    import sys")
             step_imports.append("    from pathlib import Path")
-            step_imports.append("    sys.path.insert(0, str(Path(__file__).parent.parent.parent))")
-            
+            step_imports.append(
+                "    sys.path.insert(0, str(Path(__file__).parent.parent.parent))"
+            )
+
             for step in phase.steps:
-                module_path = step.entry_file.replace('.py', '')
+                module_path = step.entry_file.replace(".py", "")
                 # Construct the full import path for standalone mode
-                step_imports.append(f"    from phases.{phase.phase_id}.steps.{module_path} import {module_path}")
-            
+                step_imports.append(
+                    f"    from phases.{phase.phase_id}.steps.{module_path} import {module_path}"
+                )
+
             # Add PathResolver import for standalone
-            step_imports.append("    from control_flow_engine.runtime import PathResolver, PathResolutionError")
-            
+            step_imports.append(
+                "    from control_flow_engine.runtime import PathResolver, PathResolutionError"
+            )
+
             step_imports.append("else:")
             step_imports.append("    # When imported as module, use relative imports")
             for step in phase.steps:
-                module_path = step.entry_file.replace('.py', '')
-                step_imports.append(f"    from .steps.{module_path} import {module_path}")
-            
+                module_path = step.entry_file.replace(".py", "")
+                step_imports.append(
+                    f"    from .steps.{module_path} import {module_path}"
+                )
+
             # Add PathResolver import for module context
-            step_imports.append("    from control_flow_engine.runtime import PathResolver, PathResolutionError")
-        
-        step_imports_str = '\n'.join(step_imports) if step_imports else ""
-        
+            step_imports.append(
+                "    from control_flow_engine.runtime import PathResolver, PathResolutionError"
+            )
+
+        step_imports_str = "\n".join(step_imports) if step_imports else ""
+
         # Generate output file creation code
         output_creation = []
         for artifact in phase.artifacts_produced:
             output_creation.append(f"        # Generate {artifact.artifact_id}")
-            output_creation.append(f"        output_file = self.phase_dir / '{artifact.output_file}'")
+            output_creation.append(
+                f"        output_file = self.phase_dir / '{artifact.output_file}'"
+            )
             output_creation.append(f"        # TODO: Write actual data to output_file")
-        output_creation_str = '\n'.join(output_creation) if output_creation else "        pass"
-        
+        output_creation_str = (
+            "\n".join(output_creation) if output_creation else "        pass"
+        )
+
         # Generate return dictionary
         return_items = []
         for artifact in phase.artifacts_produced:
-            return_items.append(f"            '{artifact.artifact_id}': str(self.phase_dir / '{artifact.output_file}')")
-        return_dict_str = ',\n'.join(return_items) if return_items else ""
-        
-        consumed_str = ', '.join(phase.artifacts_consumed) if phase.artifacts_consumed else 'None'
-        produced_str = ', '.join([a.artifact_id for a in phase.artifacts_produced])
-        
+            return_items.append(
+                f"            '{artifact.artifact_id}': str(self.phase_dir / '{artifact.output_file}')"
+            )
+        return_dict_str = ",\n".join(return_items) if return_items else ""
+
+        consumed_str = (
+            ", ".join(phase.artifacts_consumed) if phase.artifacts_consumed else "None"
+        )
+        produced_str = ", ".join([a.artifact_id for a in phase.artifacts_produced])
+
         # Extract phase sequence from directory name (phase_N_id)
         phase_sequence = "1"  # Default
         import re
-        dir_match = re.match(r'.*phase_(\d+)_', phase.directory)
+
+        dir_match = re.match(r".*phase_(\d+)_", phase.directory)
         if dir_match:
             phase_sequence = dir_match.group(1)
-        
+
         return f'''"""
 Phase: {phase.name}
 {phase.description}
@@ -633,37 +677,42 @@ def main():
 if __name__ == '__main__':
     exit(main())
 '''
-    
+
     def _generate_step_calls(self, phase: PhaseConfig) -> str:
         """Generate example step calls."""
         if not phase.steps:
             return "        # No steps defined"
-        
+
         lines = []
         for step in phase.steps:
-            module_name = step.entry_file.replace('.py', '')
+            module_name = step.entry_file.replace(".py", "")
             func_name = f"execute_{step.step_id}"
-            lines.append(f"        # {module_name}.{func_name}(context, self.phase_dir)")
-        return '\n'.join(lines)
-    
+            lines.append(
+                f"        # {module_name}.{func_name}(context, self.phase_dir)"
+            )
+        return "\n".join(lines)
+
     def _generate_fallback_output_paths(self, phase: PhaseConfig) -> str:
         """Generate fallback path assignments when PathResolver unavailable."""
         lines = []
         for artifact in phase.artifacts_produced:
-            lines.append(f"            result['{artifact.artifact_id}_file'] = str(self.phase_dir / '{artifact.output_file}')")
-        return '\n'.join(lines) if lines else "            pass"
-    
+            lines.append(
+                f"            result['{artifact.artifact_id}_file'] = str(self.phase_dir / '{artifact.output_file}')"
+            )
+        return "\n".join(lines) if lines else "            pass"
+
     def _generate_step_content(self, step: StepConfig, phase: PhaseConfig) -> str:
         """Generate step file content with PathResolver integration."""
         func_name = f"execute_{step.step_id}"
-        
+
         # Extract phase sequence from directory name
         phase_sequence = "1"  # Default
         import re
-        dir_match = re.match(r'.*phase_(\d+)_', phase.directory)
+
+        dir_match = re.match(r".*phase_(\d+)_", phase.directory)
         if dir_match:
             phase_sequence = dir_match.group(1)
-        
+
         return f'''"""
 Step: {step.name}
 {step.description}
@@ -844,24 +893,28 @@ def main():
 if __name__ == '__main__':
     exit(main())
 '''
-    
-    def _write_step_unit_test(self, file_path: Path, step: StepConfig, phase: PhaseConfig, step_dir_name: str):
+
+    def _write_step_unit_test(
+        self, file_path: Path, step: StepConfig, phase: PhaseConfig, step_dir_name: str
+    ):
         """Write unit test for a step."""
         content = self._generate_step_unit_test_content(step, phase, step_dir_name)
         file_path.write_text(content)
         logger.info(f"Generated step unit test: {file_path}")
-    
+
     def _write_phase_integration_test(self, file_path: Path, phase: PhaseConfig):
         """Write integration test for phase orchestrator."""
         content = self._generate_phase_integration_test_content(phase)
         file_path.write_text(content)
         logger.info(f"Generated phase integration test: {file_path}")
-    
-    def _generate_step_unit_test_content(self, step: StepConfig, phase: PhaseConfig, step_dir_name: str) -> str:
+
+    def _generate_step_unit_test_content(
+        self, step: StepConfig, phase: PhaseConfig, step_dir_name: str
+    ) -> str:
         """Generate unit test content for a step."""
         func_name = f"execute_{step.step_id}"
         test_class_name = f"Test{step.step_id.title().replace('_', '')}"
-        
+
         return f'''"""
 Unit Test for Step: {step.name}
 {step.description}
@@ -946,20 +999,30 @@ class {test_class_name}(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 '''
-    
+
     def _generate_phase_integration_test_content(self, phase: PhaseConfig) -> str:
         """Generate integration test content for phase orchestrator."""
         class_name = self._class_name_from_id(phase.phase_id)
         test_class_name = f"Test{class_name}Integration"
-        
+
         step_execution_checks = []
         for step in phase.steps:
-            step_execution_checks.append(f"        # Verify {step.step_id} was executed")
-        step_checks_str = '\n'.join(step_execution_checks) if step_execution_checks else "        # No steps to verify"
-        
-        consumed_artifacts = ', '.join(phase.artifacts_consumed) if phase.artifacts_consumed else 'None'
-        produced_artifacts = ', '.join([a.artifact_id for a in phase.artifacts_produced])
-        
+            step_execution_checks.append(
+                f"        # Verify {step.step_id} was executed"
+            )
+        step_checks_str = (
+            "\n".join(step_execution_checks)
+            if step_execution_checks
+            else "        # No steps to verify"
+        )
+
+        consumed_artifacts = (
+            ", ".join(phase.artifacts_consumed) if phase.artifacts_consumed else "None"
+        )
+        produced_artifacts = ", ".join(
+            [a.artifact_id for a in phase.artifacts_produced]
+        )
+
         return f'''"""
 Integration Test for Phase: {phase.name}
 {phase.description}
@@ -1065,11 +1128,11 @@ class {test_class_name}(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 '''
-    
+
     def _class_name_from_id(self, phase_id: str) -> str:
         """Convert phase_id to PascalCase class name."""
-        return ''.join(word.capitalize() for word in phase_id.split('_')) + 'Phase'
-    
+        return "".join(word.capitalize() for word in phase_id.split("_")) + "Phase"
+
     def _generate_entry_point(self, phases: List[PhaseConfig]) -> Path:
         """Generate root entry point (run.py)."""
         entry_point = self.output_dir / "run.py"
@@ -1230,19 +1293,19 @@ def main():
 if __name__ == "__main__":
     main()
 '''
-        
+
         entry_point.write_text(content)
         entry_point.chmod(0o755)  # Make executable
         logger.info(f"Generated entry point: {entry_point}")
-        
+
         return entry_point
-    
+
     def _generate_metadata(self) -> List[Path]:
         """Generate metadata files (.gitignore, README, etc.)."""
         files = []
-        
+
         # .gitignore
-        gitignore = self.output_dir / '.gitignore'
+        gitignore = self.output_dir / ".gitignore"
         gitignore.write_text(
             "# Generated outputs\n"
             "*/outputs/*\n"
@@ -1252,10 +1315,11 @@ if __name__ == "__main__":
         )
         files.append(gitignore)
         logger.info(f"Generated .gitignore: {gitignore}")
-        
+
         # README
-        readme = self.output_dir / 'README_GENERATED.md'
-        readme.write_text(f'''# {self.component_name.replace('-', ' ').title()} - Generated Scaffolding
+        readme = self.output_dir / "README_GENERATED.md"
+        readme.write_text(
+            f"""# {self.component_name.replace('-', ' ').title()} - Generated Scaffolding
 
 > **Generated by Control Flow Engine** from `{self.spec_file.name}`
 
@@ -1286,8 +1350,9 @@ This scaffolding was automatically generated. Implement phase logic in each phas
 
 **Generated by**: Control Flow Engine  
 **Source**: {self.spec_file}
-''')
+"""
+        )
         files.append(readme)
         logger.info(f"Generated README: {readme}")
-        
+
         return files

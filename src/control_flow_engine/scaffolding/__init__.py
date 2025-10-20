@@ -2,4 +2,4 @@
 
 from .generator import ScaffoldGenerator
 
-__all__ = ['ScaffoldGenerator']
+__all__ = ["ScaffoldGenerator"]

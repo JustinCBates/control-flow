@@ -7,4 +7,4 @@ Provides services needed during control flow execution:
 
 from .path_resolver import PathResolver, PathResolutionError
 
-__all__ = ['PathResolver', 'PathResolutionError']
+__all__ = ["PathResolver", "PathResolutionError"]

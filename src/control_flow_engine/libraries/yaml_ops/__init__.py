@@ -13,13 +13,13 @@ from .saver import YAMLSaver, SaveResult, SaveOptions
 from .validator import YAMLValidator, ValidationResult as YAMLValidationResult
 
 __all__ = [
-    'YAMLLoader',
-    'LoadResult',
-    'YAMLSaver',
-    'SaveResult',
-    'SaveOptions',
-    'YAMLValidator',
-    'YAMLValidationResult',
+    "YAMLLoader",
+    "LoadResult",
+    "YAMLSaver",
+    "SaveResult",
+    "SaveOptions",
+    "YAMLValidator",
+    "YAMLValidationResult",
 ]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

@@ -25,20 +25,23 @@ class ImplementationStatus(Enum):
 @dataclass
 class StepInsertion:
     """Definition for inserting a new step."""
+
     step_id: str
     name: str
     sequence: int
     description: str
     status: ImplementationStatus
-    step_type: str  # 'interactive', 'processing', 'io', 'validation' - for documentation only
-    
+    step_type: (
+        str  # 'interactive', 'processing', 'io', 'validation' - for documentation only
+    )
+
     # Parent phase info
     phase_id: str
     phase_sequence: int
-    
+
     # Scaffolding options
     create_scaffolding: bool = True
-    
+
     # Insert position
     insert_before: Optional[str] = None
     insert_after: Optional[str] = None
@@ -47,42 +50,43 @@ class StepInsertion:
 @dataclass
 class PhaseInsertion:
     """Definition for inserting a new phase."""
+
     phase_id: str
     name: str
     sequence: int
     description: str
     status: ImplementationStatus
-    
+
     # Scaffolding options
     create_scaffolding: bool = True
     orchestrator_class_name: Optional[str] = None
     base_path: Path = Path("phases")
-    
+
     # Initial steps to create
     initial_steps: List[StepInsertion] = field(default_factory=list)
 
 
 class ScaffoldGenerator:
     """Generates directory structures and files for phases and steps."""
-    
+
     def __init__(self, project_root: Path):
         """
         Initialize scaffold generator.
-        
+
         Args:
             project_root: Root directory of the project
         """
         self.project_root = project_root
-    
+
     def _write_file_safe(self, path: Path, content: str, force: bool = False) -> bool:
         """
         Write file only if it doesn't exist or force=True.
-        
+
         Args:
             path: Path to file
             content: File content
             force: If True, overwrite existing files
-            
+
         Returns:
             True if file was written, False if skipped
         """
@@ -90,134 +94,131 @@ class ScaffoldGenerator:
             logger.warning(f"⚠️  Skipping existing file: {path}")
             logger.info("    Use --force to overwrite existing files")
             return False
-        
+
         path.write_text(content)
         logger.info(f"✅ Created: {path}")
         return True
 
     def create_phase_scaffolding(
-        self,
-        phase: PhaseInsertion,
-        base_path: Path,
-        force: bool = False
+        self, phase: PhaseInsertion, base_path: Path, force: bool = False
     ) -> Optional[Dict[str, Path]]:
         """
         Create directory structure and files for a new phase.
-        
+
         Args:
             phase: Phase definition
             base_path: Base directory (e.g., phases/)
             force: If True, overwrite existing files/directories
-            
+
         Returns:
             Dict mapping file types to created paths, or None if skipped
         """
         created_files = {}
-        
+
         # Create phase directory
         phase_dir = base_path / f"phase_{phase.sequence}_{phase.phase_id}"
-        
+
         # Check if phase directory already exists
         if phase_dir.exists() and not force:
             logger.error(f"❌ Phase directory already exists: {phase_dir}")
             logger.info("    Use --force to overwrite existing phase")
             return None
-        
+
         phase_dir.mkdir(parents=True, exist_ok=True)
-        created_files['directory'] = phase_dir
-        
+        created_files["directory"] = phase_dir
+
         # Create __init__.py
         init_file = phase_dir / "__init__.py"
         init_content = self._generate_phase_init(phase)
         if self._write_file_safe(init_file, init_content, force):
-            created_files['init'] = init_file
-        
+            created_files["init"] = init_file
+
         # Create orchestrator file
         orchestrator_name = f"orchestrator_{phase.phase_id}.py"
         orchestrator_file = phase_dir / orchestrator_name
         orchestrator_content = self._generate_phase_orchestrator(phase)
         if self._write_file_safe(orchestrator_file, orchestrator_content, force):
-            created_files['orchestrator'] = orchestrator_file
-        
+            created_files["orchestrator"] = orchestrator_file
+
         # Create outputs directory
         outputs_dir = phase_dir / "outputs"
         outputs_dir.mkdir(exist_ok=True)
-        created_files['outputs_dir'] = outputs_dir
-        
+        created_files["outputs_dir"] = outputs_dir
+
         # Create README
         readme_file = phase_dir / "README.md"
         readme_content = self._generate_phase_readme(phase)
         if self._write_file_safe(readme_file, readme_content, force):
-            created_files['readme'] = readme_file
-        
+            created_files["readme"] = readme_file
+
         logger.info(f"✅ Created phase scaffolding at {phase_dir}")
-        
+
         # Create initial steps if specified
         if phase.initial_steps:
             for step in phase.initial_steps:
                 step_files = self.create_step_scaffolding(step, phase_dir, force)
                 if step_files:
-                    created_files[f'step_{step.step_id}'] = step_files
-        
+                    created_files[f"step_{step.step_id}"] = step_files
+
         return created_files
-        
+
     def create_step_scaffolding(
-        self,
-        step: StepInsertion,
-        base_path: Path,
-        force: bool = False
+        self, step: StepInsertion, base_path: Path, force: bool = False
     ) -> Optional[Dict[str, Path]]:
         """
         Create directory structure and files for a new step.
-        
+
         Args:
             step: Step definition
             base_path: Base directory (e.g., phases/phase_1_discovery/)
             force: If True, overwrite existing files/directories
-            
+
         Returns:
             Dict mapping file types to created paths, or None if skipped
         """
         created_files = {}
-        
+
         # Create step directory
         step_dir = base_path / f"step_{step.sequence}_{step.step_id}"
-        
+
         # Check if step directory already exists
         if step_dir.exists() and not force:
             logger.error(f"❌ Step directory already exists: {step_dir}")
             logger.info("    Use --force to overwrite existing step")
             return None
-        
+
         step_dir.mkdir(parents=True, exist_ok=True)
-        created_files['directory'] = step_dir
-        
+        created_files["directory"] = step_dir
+
         # Create __init__.py
         init_file = step_dir / "__init__.py"
         init_content = self._generate_step_init(step)
         if self._write_file_safe(init_file, init_content, force):
-            created_files['init'] = init_file
-        
+            created_files["init"] = init_file
+
         # Create implementation file (generic stub only)
         impl_file = step_dir / f"{step.step_id}.py"
         impl_content = self._generate_step_implementation(step)
         if self._write_file_safe(impl_file, impl_content, force):
-            created_files['implementation'] = impl_file
-        
+            created_files["implementation"] = impl_file
+
         # Create README
         readme_file = step_dir / "README.md"
         readme_content = self._generate_step_readme(step)
         if self._write_file_safe(readme_file, readme_content, force):
-            created_files['readme'] = readme_file
-        
+            created_files["readme"] = readme_file
+
         logger.info(f"✅ Created step scaffolding at {step_dir}")
-        
+
         return created_files
-    
+
     def _generate_phase_init(self, phase: PhaseInsertion) -> str:
         """Generate __init__.py content for a phase."""
-        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
-        
+        class_name = (
+            phase.orchestrator_class_name
+            or f'{phase.phase_id.title().replace("_", "")}Phase'
+        )
+
         return f'''"""
 {phase.name}
 {phase.description}
@@ -227,11 +228,14 @@ from .orchestrator_{phase.phase_id} import {class_name}
 
 __all__ = ['{class_name}']
 '''
-    
+
     def _generate_phase_orchestrator(self, phase: PhaseInsertion) -> str:
         """Generate orchestrator file for a phase."""
-        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
-        
+        class_name = (
+            phase.orchestrator_class_name
+            or f'{phase.phase_id.title().replace("_", "")}Phase'
+        )
+
         return f'''#!/usr/bin/env python3
 """
 {phase.name}
@@ -352,12 +356,15 @@ if __name__ == "__main__":
     result = phase.execute(test_context)
     print(f"\\nResult: {{result}}")
 '''
-    
+
     def _generate_phase_readme(self, phase: PhaseInsertion) -> str:
         """Generate README for a phase."""
-        class_name = phase.orchestrator_class_name or f'{phase.phase_id.title().replace("_", "")}Phase'
-        
-        return f'''# {phase.name}
+        class_name = (
+            phase.orchestrator_class_name
+            or f'{phase.phase_id.title().replace("_", "")}Phase'
+        )
+
+        return f"""# {phase.name}
 
 **Status**: {phase.status.value}  
 **Sequence**: {phase.sequence}  
@@ -427,8 +434,8 @@ python run_phases.py --start {phase.sequence} --end {phase.sequence}
 ## Notes
 
 Add any phase-specific notes, gotchas, or implementation details here.
-'''
-    
+"""
+
     def _generate_step_init(self, step: StepInsertion) -> str:
         """Generate __init__.py content for a step."""
         return f'''"""
@@ -440,7 +447,7 @@ from .{step.step_id} import execute_{step.step_id}
 
 __all__ = ['execute_{step.step_id}']
 '''
-    
+
     def _generate_step_implementation(self, step: StepInsertion) -> str:
         """Generate implementation file for a regular step."""
         return f'''#!/usr/bin/env python3
@@ -491,16 +498,16 @@ if __name__ == "__main__":
     result = execute_{step.step_id}(test_context, test_phase_dir)
     print(f"\\nResult: {{result}}")
 '''
-    
+
     def _generate_step_readme(self, step: StepInsertion) -> str:
         """Generate README for a step."""
         step_type_desc = {
-            'interactive': 'This step interacts with the user to collect input.',
-            'processing': 'This step processes data without user interaction.',
-            'io': 'This step performs input/output operations.',
-            'validation': 'This step validates data or configuration.'
-        }.get(step.step_type, 'This step performs a specific operation.')
-        return f'''# {step.name}
+            "interactive": "This step interacts with the user to collect input.",
+            "processing": "This step processes data without user interaction.",
+            "io": "This step performs input/output operations.",
+            "validation": "This step validates data or configuration.",
+        }.get(step.step_type, "This step performs a specific operation.")
+        return f"""# {step.name}
 
 **Status**: {step.status.value}  
 **Type**: {step.step_type}  
@@ -530,4 +537,4 @@ python {step.step_id}.py
 - [ ] Add logging
 - [ ] Write unit tests
 - [ ] Update documentation
-'''
+"""
