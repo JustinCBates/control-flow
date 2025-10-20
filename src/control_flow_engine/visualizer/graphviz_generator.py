@@ -42,7 +42,7 @@ class GraphvizFlowVisualizer:
 
     def parse_yaml_spec(self) -> Dict[str, Any]:
         """Parse YAML control flow specification."""
-        with open(self.spec_file, "r") as f:
+        with open(self.spec_file) as f:
             self.flow_data = yaml.safe_load(f)
 
         # Extract phases

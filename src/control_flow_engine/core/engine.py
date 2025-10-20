@@ -69,7 +69,7 @@ class ControlFlowManager:
         if not self.spec_file.exists():
             raise FileNotFoundError(f"Specification file not found: {self.spec_file}")
 
-        with open(self.spec_file, "r") as f:
+        with open(self.spec_file) as f:
             content = f.read()
 
         # Check if this is a pure YAML file or markdown with YAML blocks
@@ -426,18 +426,18 @@ class ControlFlowManager:
         mock_code = f'''def {step_id}(self, context: Dict[str, Any]) -> Dict[str, Any]:
     """
     {step_name}
-    
+
     {description}
-    
+
     Args:
         context: Current execution context
-        
+
     Returns:
         Updated context with step results
     """
     # TODO: Implement {step_name.lower()}
     self.ui.show_step("{step_name}")
-    
+
     # Mock implementation
     result = {{
         "step_id": "{step_id}",
@@ -445,7 +445,7 @@ class ControlFlowManager:
         "data": {{}},
         "messages": []
     }}
-    
+
     context.update(result)
     return context
 '''
@@ -482,24 +482,24 @@ class ControlFlowManager:
         "flow": "{flow_name}",
         "previous_steps": []
     }}
-    
+
     # Act
     result = manager.{step_id}(context)
-    
+
     # Assert
     assert result is not None
     assert result.get("step_id") == "{step_id}"
     assert result.get("status") == "completed"
-    
+
     # Verify specific behavior for {description.lower()}
     # TODO: Add specific assertions based on step requirements
-    
+
 def test_{step_id}_error_handling(self):
     """Test {step_name} error handling."""
     # Arrange
     manager = ConfigurationManager()
     invalid_context = {{}}  # Invalid context to trigger error
-    
+
     # Act & Assert
     with pytest.raises(ValueError):
         manager.{step_id}(invalid_context)

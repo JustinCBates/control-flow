@@ -86,7 +86,7 @@ class YAMLLoader:
                 )
 
             # Read file
-            with open(file_path, "r", encoding=encoding) as f:
+            with open(file_path, encoding=encoding) as f:
                 content = f.read()
 
             # Parse YAML

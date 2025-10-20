@@ -234,7 +234,7 @@ class TransformationHistory:
         """Load existing history or create new structure."""
         if self.history_file.exists():
             try:
-                with open(self.history_file, "r") as f:
+                with open(self.history_file) as f:
                     return json.load(f)
             except json.JSONDecodeError:
                 print(

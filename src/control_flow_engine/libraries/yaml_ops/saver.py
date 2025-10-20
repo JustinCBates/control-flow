@@ -245,7 +245,7 @@ def demo_saver():
 
     if result.success:
         print("\nGenerated YAML:")
-        with open(output_file, "r") as f:
+        with open(output_file) as f:
             print(f.read())
 
     # Example 2: Flow style (more compact)
@@ -262,7 +262,7 @@ def demo_saver():
 
     if result.success:
         print("\nGenerated YAML (flow style):")
-        with open(output_file2, "r") as f:
+        with open(output_file2) as f:
             print(f.read())
 
     # Example 3: Save with custom indentation
@@ -279,7 +279,7 @@ def demo_saver():
 
     if result.success:
         print("\nGenerated YAML (4-space indent):")
-        with open(output_file3, "r") as f:
+        with open(output_file3) as f:
             print(f.read())
 
     # Example 4: Backup creation
@@ -303,10 +303,10 @@ def demo_saver():
     if result.success and result.backup_path:
         print(f"\nBackup created at: {result.backup_path.name}")
         print("Original content (from backup):")
-        with open(result.backup_path, "r") as f:
+        with open(result.backup_path) as f:
             print(f.read())
         print("New content:")
-        with open(backup_file, "r") as f:
+        with open(backup_file) as f:
             print(f.read())
 
     # Cleanup

@@ -27,7 +27,7 @@ class ControlFlowAnalyzer:
             return {}
 
         try:
-            with open(self.control_flows_file, "r") as f:
+            with open(self.control_flows_file) as f:
                 data = yaml.safe_load(f)
 
             if not data:
@@ -122,7 +122,7 @@ class ControlFlowAnalyzer:
         # Look for main.py and check CLI commands
         main_py = self.component_path / "src" / "openproject_config_manager" / "main.py"
         if main_py.exists():
-            with open(main_py, "r") as f:
+            with open(main_py) as f:
                 main_content = f.read()
 
             # Check for CLI commands

@@ -116,7 +116,7 @@ class ScaffoldGenerator:
         if not self.spec_file.exists():
             raise FileNotFoundError(f"Specification file not found: {self.spec_file}")
 
-        with open(self.spec_file, "r") as f:
+        with open(self.spec_file) as f:
             return yaml.safe_load(f)
 
     def _extract_phases(self) -> List[PhaseConfig]:
@@ -500,18 +500,18 @@ class {class_name}:
     """
     {phase.name}
     Status: {phase.status}
-    
+
     {phase.description}
-    
+
     Artifacts Consumed: {consumed_str}
     Artifacts Produced: {produced_str}
     """
-    
+
     def __init__(self, project_root: Path, ui=None, path_resolver=None):
         self.project_root = project_root
         self.ui = ui
         self.phase_dir = project_root / "{phase.directory}"
-        
+
         # Initialize path resolver for artifact resolution
         if path_resolver:
             self.path_resolver = path_resolver
@@ -521,43 +521,43 @@ class {class_name}:
             except PathResolutionError as e:
                 logger.warning(f"Could not initialize PathResolver: {{e}}")
                 self.path_resolver = None
-        
+
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute {phase.name}.
-        
+
         Args:
             context: Execution context with consumed artifacts
-            
+
         Returns:
             Dict with produced artifacts
         """
         if self.ui:
             self.ui.show_phase_header("{phase.name}", "{phase.description}")
-        
+
         logger.info("Executing {phase.name}")
-        
+
         # Resolve input artifact paths using PathResolver
         resolved_context = context.copy()
         if self.path_resolver:
             for artifact_id in [{', '.join([f"'{a}'" for a in phase.artifacts_consumed])}]:
                 try:
                     artifact_path = self.path_resolver.resolve_artifact_path(
-                        artifact_id, 
+                        artifact_id,
                         ensure_exists=True
                     )
                     resolved_context[f'{{artifact_id}}_file'] = str(artifact_path)
                     logger.debug(f"Resolved artifact {{artifact_id}}: {{artifact_path}}")
                 except PathResolutionError as e:
                     logger.warning(f"Could not resolve artifact {{artifact_id}}: {{e}}")
-        
+
         # TODO: Implement phase logic
         # Call steps as needed:
 {self._generate_step_calls(phase)}
-        
+
         # Mock: Generate output files
 {output_creation_str}
-        
+
         # Resolve output artifact paths using PathResolver
         result = {{}}
         if self.path_resolver:
@@ -574,7 +574,7 @@ class {class_name}:
         else:
             # Fallback to manual path construction
             {self._generate_fallback_output_paths(phase)}
-        
+
         logger.info("{phase.name} completed")
         return result
 
@@ -583,14 +583,14 @@ def main():
     """Standalone entry point for testing this phase."""
     import argparse
     import sys
-    
+
     parser = argparse.ArgumentParser(description="{phase.name}")
     parser.add_argument('--output-dir', help='Output directory', default=None)
     parser.add_argument('--verbose', action='store_true', help='Enable verbose logging')
     parser.add_argument('--show-paths', action='store_true', help='Display path configuration and exit')
-    
+
     args = parser.parse_args()
-    
+
     # Show path configuration if requested
     if args.show_paths:
         print("\\n" + "=" * 70)
@@ -604,22 +604,22 @@ def main():
         print(f"   PROJECT_ROOT: {{PROJECT_ROOT}}")
         print(f"   PHASE_DIR: {{PHASE_DIR}}")
         print(f"   OUTPUT_DIR: {{OUTPUT_DIR}}")
-        
+
         # Validate against PathResolver
         try:
             path_resolver = PathResolver.from_execution_context(__file__)
             resolver_phase_dir = path_resolver.resolve_phase_directory(PHASE_ID)
             resolver_output_dir = path_resolver.resolve_phase_output_dir(PHASE_ID)
-            
+
             print(f"\\n✅ PathResolver Validation:")
-            
+
             if Path(resolver_phase_dir) == PHASE_DIR:
                 print(f"   Phase directory: MATCHES")
             else:
                 print(f"   Phase directory: MISMATCH")
                 print(f"     Computed: {{PHASE_DIR}}")
                 print(f"     Resolver: {{resolver_phase_dir}}")
-            
+
             if Path(resolver_output_dir) == OUTPUT_DIR:
                 print(f"   Output directory: MATCHES")
             else:
@@ -628,41 +628,41 @@ def main():
                 print(f"     Resolver: {{resolver_output_dir}}")
         except Exception as e:
             print(f"\\n⚠️  PathResolver validation failed: {{e}}")
-        
+
         print("\\n" + "=" * 70)
         return 0
-    
+
     # Setup logging
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     try:
         # Initialize PathResolver to auto-detect project structure
         path_resolver = PathResolver.from_execution_context(__file__)
         project_root = path_resolver.get_project_root()
-        
+
         logger.info(f"Detected project root: {{project_root}}")
-        
+
         # Initialize phase
         phase = {class_name}(project_root=project_root, ui=None, path_resolver=path_resolver)
-        
+
         # Build context from CLI args
         context = {{}}
-        
+
         # Execute phase
         result = phase.execute(context)
-        
+
         print("\\n" + "=" * 70)
         print(f"✅ PHASE COMPLETE: {phase.name}")
         print("=" * 70)
         print(f"\\n📊 Phase Summary:")
         for key, value in result.items():
             print(f"  • {{key}}: {{value}}")
-        
+
         return 0
-        
+
     except PathResolutionError as e:
         print(f"\\n❌ Path resolution failed: {{e}}")
         print("\\nEnsure you're running from within a valid control flow project.")
@@ -761,25 +761,25 @@ def {func_name}(context: Dict[str, Any], phase_dir: Path) -> Dict[str, Any]:
     """
     {step.name}
     Status: {step.status}
-    
+
     {step.description}
-    
+
     Args:
         context: Execution context
         phase_dir: Phase directory path
-        
+
     Returns:
         Dict with step results
     """
     logger.info("Executing step: {step.name}")
-    
+
     # TODO: Implement step logic
-    
+
     result = {{
         'step': '{step.step_id}',
         'status': 'completed'
     }}
-    
+
     logger.info("Step {step.name} completed")
     return result
 
@@ -788,14 +788,14 @@ def main():
     """Standalone entry point for testing this step."""
     import argparse
     import sys
-    
+
     parser = argparse.ArgumentParser(description="{step.name}")
     parser.add_argument('--output-dir', help='Output directory', default=None)
     parser.add_argument('--verbose', action='store_true', help='Enable verbose logging')
     parser.add_argument('--show-paths', action='store_true', help='Display path configuration and exit')
-    
+
     args = parser.parse_args()
-    
+
     # Show path configuration if requested
     if args.show_paths:
         print("\\n" + "=" * 70)
@@ -809,22 +809,22 @@ def main():
         print(f"   PROJECT_ROOT: {{PROJECT_ROOT}}")
         print(f"   PHASE_DIR: {{PHASE_DIR}}")
         print(f"   OUTPUT_DIR: {{OUTPUT_DIR}}")
-        
+
         # Validate against PathResolver
         try:
             path_resolver = PathResolver.from_execution_context(__file__)
             resolver_phase_dir = path_resolver.resolve_phase_directory(PHASE_ID)
             resolver_output_dir = path_resolver.resolve_phase_output_dir(PHASE_ID)
-            
+
             print(f"\\n✅ PathResolver Validation:")
-            
+
             if Path(resolver_phase_dir) == PHASE_DIR:
                 print(f"   Phase directory: MATCHES")
             else:
                 print(f"   Phase directory: MISMATCH")
                 print(f"     Computed: {{PHASE_DIR}}")
                 print(f"     Resolver: {{resolver_phase_dir}}")
-            
+
             if Path(resolver_output_dir) == OUTPUT_DIR:
                 print(f"   Output directory: MATCHES")
             else:
@@ -833,42 +833,42 @@ def main():
                 print(f"     Resolver: {{resolver_output_dir}}")
         except Exception as e:
             print(f"\\n⚠️  PathResolver validation failed: {{e}}")
-        
+
         print("\\n" + "=" * 70)
         return 0
-    
+
     # Setup logging
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     try:
         # Initialize path resolver from current file to auto-detect project structure
         path_resolver = PathResolver.from_execution_context(__file__)
         project_root = path_resolver.get_project_root()
-        
+
         logger.info(f"Detected project root: {{project_root}}")
-        
+
         # Resolve phase directory and output directory
         phase_dir = path_resolver.resolve_phase_directory('{phase.phase_id}')
-        
+
         # If user specified output dir, use it; otherwise use resolver
         if args.output_dir:
             output_dir = Path(args.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
         else:
             output_dir = path_resolver.resolve_phase_output_dir('{phase.phase_id}', create=True)
-        
+
         logger.info(f"Phase directory: {{phase_dir}}")
         logger.info(f"Output directory: {{output_dir}}")
-        
+
         # Build context from CLI args
         context = {{}}
-        
+
         # Execute step
         result = {func_name}(context, phase_dir)
-        
+
         print("\\n" + "=" * 70)
         print(f"✅ Step completed: {{result.get('status', 'unknown')}}")
         print("=" * 70)
@@ -876,9 +876,9 @@ def main():
         for key, value in result.items():
             if key not in ['step', 'status'] and isinstance(value, (str, int, bool)):
                 print(f"  • {{key}}: {{value}}")
-        
+
         return 0
-        
+
     except PathResolutionError as e:
         print(f"\\n❌ Path resolution failed: {{e}}")
         print("\\nEnsure you're running from within a valid control flow project.")
@@ -939,7 +939,7 @@ spec.loader.exec_module(step_module)
 
 class {test_class_name}(unittest.TestCase):
     """Unit tests for {step.name} step."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.mock_context = {{
@@ -947,51 +947,51 @@ class {test_class_name}(unittest.TestCase):
             'phase': '{phase.phase_id}'
         }}
         self.mock_phase_dir = Path('/mock/phase/dir')
-    
+
     def test_step_execution_success(self):
         """Test successful step execution."""
         # Execute step
         result = step_module.{func_name}(self.mock_context, self.mock_phase_dir)
-        
+
         # Assertions
         self.assertIsInstance(result, dict)
         self.assertIn('step', result)
         self.assertEqual(result['step'], '{step.step_id}')
         self.assertIn('status', result)
         self.assertEqual(result['status'], 'completed')
-    
+
     def test_step_execution_with_empty_context(self):
         """Test step execution with empty context."""
         empty_context = {{}}
-        
+
         # Execute step
         result = step_module.{func_name}(empty_context, self.mock_phase_dir)
-        
+
         # Should still return valid result
         self.assertIsInstance(result, dict)
         self.assertIn('step', result)
-    
+
     def test_step_returns_expected_keys(self):
         """Test that step returns all expected keys."""
         result = step_module.{func_name}(self.mock_context, self.mock_phase_dir)
-        
+
         # Check for required keys
         required_keys = ['step', 'status']
         for key in required_keys:
             self.assertIn(key, result, f"Missing required key: {{{{key}}}}")
-    
+
     @patch('logging.getLogger')
     def test_step_logging(self, mock_logger):
         """Test that step logs appropriately."""
         mock_log = MagicMock()
         mock_logger.return_value = mock_log
-        
+
         # Re-import to get mocked logger
         importlib.reload(step_module)
-        
+
         # Execute step
         step_module.{func_name}(self.mock_context, self.mock_phase_dir)
-        
+
         # Verify logging calls were made
         # Note: Actual log calls depend on implementation
 
@@ -1044,82 +1044,82 @@ sys.path.insert(0, str(project_root))
 
 class {test_class_name}(unittest.TestCase):
     """Integration tests for {phase.name} orchestrator."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.temp_dir = Path(tempfile.mkdtemp())
         self.mock_project_root = self.temp_dir
-        
+
         # Create necessary directories
         self.phase_dir = self.mock_project_root / "{phase.directory}"
         self.phase_dir.mkdir(parents=True, exist_ok=True)
         (self.phase_dir / "outputs").mkdir(exist_ok=True)
-        
+
         # Mock context with consumed artifacts
         self.mock_context = {{
             'project_root': str(self.mock_project_root),
             # Add consumed artifacts: {consumed_artifacts}
         }}
-        
+
         # Mock UI
         self.mock_ui = Mock()
         self.mock_ui.show_phase_header = Mock()
         self.mock_ui.update_progress = Mock()
-    
+
     def tearDown(self):
         """Clean up test fixtures."""
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
-    
+
     def test_phase_initialization(self):
         """Test phase can be initialized."""
         # Note: This test structure assumes orchestrator follows generated pattern
         # Adjust based on actual implementation
-        
+
         # Phase should initialize without error
         self.assertTrue(self.phase_dir.exists())
         self.assertTrue((self.phase_dir / "outputs").exists())
-    
+
     def test_phase_context_handling(self):
         """Test phase properly handles context."""
         # Verify consumed artifacts are available
         # Consumed: {consumed_artifacts}
-        
+
         # This is a placeholder - adjust based on actual orchestrator implementation
         self.assertIsInstance(self.mock_context, dict)
-    
+
     def test_phase_produces_artifacts(self):
         """Test phase produces expected artifacts."""
         # Expected produced artifacts: {produced_artifacts}
-        
+
         # This is a placeholder - implement based on actual orchestrator
         expected_artifacts = [{', '.join([f"'{a.artifact_id}'" for a in phase.artifacts_produced])}]
-        
+
         for artifact in expected_artifacts:
             # Verify artifact would be produced
             pass
-    
+
     def test_phase_steps_execution_order(self):
         """Test that phase executes steps in correct order."""
 {step_checks_str}
-        
+
         # This is a placeholder - implement based on actual orchestrator
         pass
-    
+
     def test_phase_error_handling(self):
         """Test phase handles errors gracefully."""
         # Test with invalid context
         invalid_context = {{}}
-        
+
         # Phase should handle gracefully or raise appropriate error
         # Implement based on actual orchestrator behavior
         pass
-    
+
     def test_phase_with_ui_mock(self):
         """Test phase works with UI mock."""
         # Verify UI methods would be called
         self.assertIsNotNone(self.mock_ui)
-        
+
         # Simulate UI interactions
         self.mock_ui.show_phase_header("{phase.name}", "{phase.description}")
         self.mock_ui.show_phase_header.assert_called_once()
@@ -1156,77 +1156,77 @@ from typing import Dict, Any
 
 class {self._class_name_from_id(self.component_name.replace('-', '_'))}Runner:
     """Executes {self.component_name} flows defined in control_flows.yml"""
-    
+
     def __init__(self):
         self.repo_root = Path(__file__).parent
         self.spec_path = self.repo_root / "design_specs" / "control_flows.yml"
         self.spec = None
-        
+
         # Add project to path
         sys.path.insert(0, str(self.repo_root))
-    
+
     def load_spec(self) -> Dict[str, Any]:
         """Load control_flows.yml specification."""
         if not self.spec_path.exists():
             print(f"ERROR: Control flow specification not found: {{self.spec_path}}")
             sys.exit(1)
-        
+
         with open(self.spec_path) as f:
             self.spec = yaml.safe_load(f)
-        
+
         return self.spec
-    
+
     def list_flows(self):
         """List all available flows."""
         if not self.spec:
             self.load_spec()
-        
+
         print("\\nAvailable flows:")
         for flow_name, flow_data in self.spec.get('flows', {{}}).items():
             desc = flow_data.get('description', 'No description')
             print(f"  - {{flow_name}}: {{desc}}")
         print()
-    
+
     def execute_flow(self, flow_name: str) -> bool:
         """Execute a flow by name."""
         if not self.spec:
             self.load_spec()
-        
+
         flows = self.spec.get('flows', {{}})
         if flow_name not in flows:
             print(f"ERROR: Flow '{{flow_name}}' not found")
             self.list_flows()
             return False
-        
+
         flow = flows[flow_name]
         phases = flow.get('phases', [])
-        
+
         print(f"\\nExecuting flow: {{flow_name}}")
         print(f"Description: {{flow.get('description')}}")
         print(f"Phases: {{len(phases)}}\\n")
-        
+
         context = {{}}
-        
+
         for idx, phase_data in enumerate(phases, start=1):
             phase_id = phase_data['phase_id']
             phase_name = phase_data['name']
             entry_file = phase_data.get('entry_file', f"{{phase_id}}.py")
             phase_dir = phase_data.get('phase_directory', f"phases/phase_{{idx}}_{{phase_id}}")
-            
+
             print(f"→ Phase: {{phase_name}}")
-            
+
             success = self._execute_phase(phase_id, entry_file, phase_dir, context)
-            
+
             if not success:
                 print(f"ERROR: Phase '{{phase_name}}' failed")
                 return False
-            
+
             print(f"✓ Phase '{{phase_name}}' completed\\n")
-        
+
         print(f"✓ Flow '{{flow_name}}' completed successfully\\n")
         return True
-    
-    def _execute_phase(self, phase_id: str, entry_file: str, 
+
+    def _execute_phase(self, phase_id: str, entry_file: str,
                       phase_dir: str, context: Dict[str, Any]) -> bool:
         """Execute a single phase."""
         try:
@@ -1234,22 +1234,22 @@ class {self._class_name_from_id(self.component_name.replace('-', '_'))}Runner:
             module_path = phase_dir.replace('/', '.')
             module_name = entry_file.replace('.py', '')
             full_module = f"{{module_path}}.{{module_name}}"
-            
+
             phase_module = __import__(full_module, fromlist=['*'])
-            
+
             # Get phase class (PascalCase from phase_id)
             class_name = ''.join(word.capitalize() for word in phase_id.split('_')) + 'Phase'
             phase_class = getattr(phase_module, class_name)
-            
+
             # Execute
             phase_instance = phase_class(project_root=self.repo_root)
             result = phase_instance.execute(context)
-            
+
             if result:
                 context.update(result)
-            
+
             return True
-            
+
         except NotImplementedError as e:
             print(f"NOTICE: {{e}}")
             return False
@@ -1268,24 +1268,24 @@ def main():
     )
     parser.add_argument('--flow', help='Flow to execute')
     parser.add_argument('--list', action='store_true', help='List available flows')
-    
+
     args = parser.parse_args()
-    
+
     runner = {self._class_name_from_id(self.component_name.replace('-', '_'))}Runner()
-    
+
     if args.list:
         runner.list_flows()
         sys.exit(0)
-    
+
     # Get default flow from spec
     runner.load_spec()
     default_flow = list(runner.spec.get('flows', {{}}).keys())[0] if runner.spec.get('flows') else None
     flow_name = args.flow or default_flow
-    
+
     if not flow_name:
         print("ERROR: No flow specified and no flows found in specification")
         sys.exit(1)
-    
+
     success = runner.execute_flow(flow_name)
     sys.exit(0 if success else 1)
 
@@ -1348,7 +1348,7 @@ This scaffolding was automatically generated. Implement phase logic in each phas
 
 ---
 
-**Generated by**: Control Flow Engine  
+**Generated by**: Control Flow Engine
 **Source**: {self.spec_file}
 """
         )

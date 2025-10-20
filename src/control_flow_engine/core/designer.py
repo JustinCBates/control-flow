@@ -54,7 +54,7 @@ class ControlFlowDesigner:
 
         # Load existing spec if it exists
         if spec_file.exists():
-            with open(spec_file, "r") as f:
+            with open(spec_file) as f:
                 self.manager.spec = yaml.safe_load(f)
 
     @classmethod

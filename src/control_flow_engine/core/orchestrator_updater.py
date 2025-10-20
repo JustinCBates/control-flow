@@ -285,23 +285,23 @@ logger = logging.getLogger(__name__)
 
 class SamplePhase:
     """Sample phase orchestrator."""
-    
+
     def __init__(self, project_root: Path, ui=None):
         self.project_root = project_root
         self.ui = ui
-    
+
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute phase."""
         logger.info("Executing Sample Phase")
-        
+
         # TODO: Implement phase logic
-        
+
         result = {
             'phase': 'sample',
             'status': 'completed',
             'artifacts': {}
         }
-        
+
         return result
 '''
 

@@ -52,7 +52,7 @@ class OrchestratorRegenerator:
         if not self.spec_file.exists():
             raise FileNotFoundError(f"Spec file not found: {self.spec_file}")
 
-        with open(self.spec_file, "r") as f:
+        with open(self.spec_file) as f:
             return yaml.safe_load(f)
 
     def regenerate_global_orchestrator(
@@ -771,15 +771,15 @@ logger = logging.getLogger(__name__)
 
 class PhasesOrchestrator:
     """Global orchestrator for phases."""
-    
+
     # === GENERATED: REGISTRY - DO NOT EDIT ===
     PHASE_CLASSES = {}
     # === END GENERATED: REGISTRY ===
-    
+
     # === GENERATED: SEQUENCE - DO NOT EDIT ===
     STATIC_SEQUENCE = []
     # === END GENERATED: SEQUENCE ===
-    
+
     def __init__(
         self,
         project_root: Path,
@@ -789,25 +789,25 @@ class PhasesOrchestrator:
         self.project_root = project_root
         self.ui = ui
         self.mode = mode
-    
+
     def execute(self, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute the complete flow."""
         context = context or {}
-        
+
         if self.mode == "static":
             return self._execute_static(context)
         else:
             return self._execute_dynamic(context)
-    
+
     def _execute_static(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute using generated static sequence."""
         logger.info("Executing in STATIC mode")
-        
+
         # === GENERATED: STATIC_EXECUTION - DO NOT EDIT ===
         # Static execution sequence will be generated here
         return context
         # === END GENERATED: STATIC_EXECUTION ===
-    
+
     def _execute_dynamic(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute using runtime spec (custom implementation)."""
         logger.info("Executing in DYNAMIC mode")
@@ -1084,35 +1084,35 @@ class PhasesOrchestrator:
         return '''    def _execute_dynamic(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute phase using YAML specification (dynamic mode).
-        
+
         Reads steps from phase_spec['steps'] and executes them in sequence.
         """
         if not self.phase_spec:
             logger.warning("No phase spec available, falling back to hardcoded mode")
             return self._execute_hardcoded(context)
-        
+
         logger.info("Using YAML-driven execution")
         result = {'artifacts': {}}
-        
+
         for step_spec in self.phase_spec.get('steps', []):
             step_id = step_spec['step_id']
             step_status = step_spec.get('status', 'PLANNED')
-            
+
             if step_status in ['PLANNED', 'SKIPPED']:
                 logger.info(f"Skipping step {step_id} (status: {step_status})")
                 continue
-            
+
             logger.info(f"Executing step: {step_id}")
-            
+
             if 'units' in step_spec and step_spec['units']:
                 step_result = self._execute_step_with_units(step_spec, context)
             else:
                 step_result = self._execute_step_traditional(step_spec, context)
-            
+
             if step_result:
                 context.update(step_result.get("artifacts", {}))
                 result["artifacts"].update(step_result.get("artifacts", {}))
-        
+
         return self._build_result(result, context)
 '''
 

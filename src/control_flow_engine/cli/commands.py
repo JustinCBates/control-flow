@@ -23,7 +23,7 @@ def validate(spec_file):
             click.echo("❌ Specification file is empty")
             raise click.Abort()
 
-        with open(spec_path, "r") as f:
+        with open(spec_path) as f:
             content = f.read()
             if "main_config_flow" in content or "flow_id" in content:
                 click.echo("✅ Flow specification appears valid")
@@ -120,7 +120,7 @@ def analyze(spec_file, output):
         spec_path = Path(spec_file)
 
         # Basic analysis for now
-        with open(spec_path, "r") as f:
+        with open(spec_path) as f:
             content = f.read()
 
         # Count basic metrics

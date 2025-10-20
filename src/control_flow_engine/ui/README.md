@@ -140,6 +140,6 @@ pip install questionary
 
 ---
 
-**Version**: 1.0  
-**Created**: October 15, 2025  
+**Version**: 1.0
+**Created**: October 15, 2025
 **Part of**: Control Flow Transformation System
